@@ -1,0 +1,29 @@
+# Secrets never enter the repository. Keys are read from the environment only.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Runtime state: decision ledgers and recorded sandbox calls made on your machine.
+state/
+*.jsonl
+!tests/fixtures/**/*.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
