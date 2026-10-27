@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[dev]"
+      - run: pytest
+
+  no-secrets:
+    # The repository must never carry a real .env or key material.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: refuse committed env files and keys
+        run: |
+          found=$(git ls-files | grep -E '(^|/)\.env($|\.)|\.pem$|\.key$' | grep -v '^\.env\.example$' || true)
+          if [ -n "$found" ]; then
+            echo "these files must not be committed:"; echo "$found"; exit 1
+          fi
