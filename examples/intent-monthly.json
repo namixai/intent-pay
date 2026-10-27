@@ -1,0 +1,8 @@
+{
+  "request_id": "acme-2026-10-monthly",
+  "amount": "49.00",
+  "currency": "USD",
+  "payee": "billing@acme.example",
+  "purpose": "Acme Analytics, monthly plan, October",
+  "billing": "monthly"
+}

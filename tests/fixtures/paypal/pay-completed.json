@@ -1,0 +1,150 @@
+{
+  "_source": "Shapes from PayPal's own reference examples in checkout_orders_v2.json (Orders 2.32) and payments_payment_v2.json (Payments 2.12), github.com/paypal/paypal-rest-api-specifications, read 2026-10-27. IDs and amounts edited to match the test intent. NOT recorded from our sandbox: replace with `python -m intent_pay pay --record` output once a sandbox app exists.",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/oauth2/token",
+        "headers": {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        "body": {
+          "form": [
+            "grant_type"
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "scope": "https://uri.paypal.com/services/payments/payment",
+          "access_token": "REDACTED",
+          "token_type": "Bearer",
+          "app_id": "APP-80W284485P519543T",
+          "expires_in": 32400,
+          "nonce": "2026-10-27T12:00:00ZexampleNonce"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v2/checkout/orders",
+        "headers": {
+          "Content-Type": "application/json",
+          "Prefer": "return=representation",
+          "PayPal-Request-Id": "req-1-order"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": "5O190127TN364715T",
+          "status": "CREATED",
+          "intent": "CAPTURE",
+          "purchase_units": [
+            {
+              "reference_id": "req-1",
+              "invoice_id": "req-1",
+              "custom_id": "receipt:1:0000000000000000",
+              "amount": {
+                "currency_code": "USD",
+                "value": "49.00"
+              },
+              "payee": {
+                "email_address": "billing@acme.example",
+                "merchant_id": "Q7C9N6S4YRQXG"
+              }
+            }
+          ],
+          "create_time": "2026-10-27T12:00:01Z",
+          "links": [
+            {
+              "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T",
+              "rel": "self",
+              "method": "GET"
+            },
+            {
+              "href": "https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T",
+              "rel": "approve",
+              "method": "GET"
+            },
+            {
+              "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T/capture",
+              "rel": "capture",
+              "method": "POST"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v2/checkout/orders/5O190127TN364715T/capture",
+        "headers": {
+          "Content-Type": "application/json",
+          "Prefer": "return=representation",
+          "PayPal-Request-Id": "req-1-capture"
+        },
+        "body": {
+          "payment_source": {
+            "card": {
+              "vault_id": "REDACTED"
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": "5O190127TN364715T",
+          "status": "COMPLETED",
+          "payment_source": {
+            "card": {
+              "last_digits": "1881",
+              "brand": "VISA",
+              "type": "CREDIT"
+            }
+          },
+          "purchase_units": [
+            {
+              "reference_id": "req-1",
+              "payments": {
+                "captures": [
+                  {
+                    "id": "3C679366HH908993F",
+                    "status": "COMPLETED",
+                    "amount": {
+                      "currency_code": "USD",
+                      "value": "49.00"
+                    },
+                    "final_capture": true,
+                    "invoice_id": "req-1",
+                    "custom_id": "receipt:1:0000000000000000",
+                    "create_time": "2026-10-27T12:00:02Z",
+                    "links": [
+                      {
+                        "href": "https://api-m.sandbox.paypal.com/v2/payments/captures/3C679366HH908993F/refund",
+                        "rel": "refund",
+                        "method": "POST"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "links": [
+            {
+              "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T",
+              "rel": "self",
+              "method": "GET"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# The owner's policy for the PayPal sandbox demo. Every number here is an example.
+# For a live sandbox run, put your sandbox business account's e-mail under payees (and in the
+# example intents): PayPal pays the order to that account.
+payees = ["billing@acme.example"]
+
+[currencies.USD]
+per_payment = "60.00"
+daily = "100.00"
+# No min_balance: this build does not read a PayPal balance, and a reserve it cannot check refuses.

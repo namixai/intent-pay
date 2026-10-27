@@ -12,7 +12,7 @@ The policy design is taken from Usenami Signer, our Rust signing service for tra
 
 ## Status
 
-Built so far: the intent, the policy engine and the receipt ledger, with tests. Next: the PayPal sandbox adapter, the agent, the demo page, then the Airwallex adapter.
+Built so far: the intent, the policy engine, the receipt ledger and the PayPal sandbox adapter, with tests. The adapter has run only against recorded responses so far (see below). Next: the agent, the demo page, then the Airwallex adapter.
 
 ## How the policy decides
 
@@ -48,6 +48,34 @@ Limits are per currency, so no rule depends on an exchange rate. A restart does 
 ## Receipts
 
 The ledger is a JSON Lines file, one receipt per line. Each receipt carries the hash of the one before it, so editing, deleting or reordering an earlier line breaks the chain and the next decision refuses. The chain makes tampering visible. It is not signed, so it cannot tell you who wrote the file.
+
+## PayPal sandbox
+
+One payment, step by step:
+
+1. The agent's proposal goes to the policy engine. If it is refused, nothing else happens: no PayPal call is made.
+2. An allowed intent becomes an order (`POST /v2/checkout/orders`, intent `CAPTURE`). The order carries the amount, the payee, the request ID as `invoice_id` and the receipt number as `custom_id`.
+3. The gateway captures the order with the owner's card as the payment source (`POST /v2/checkout/orders/{id}/capture`). PayPal's Orders v2 reference allows a capture without buyer approval when the capture request carries a payment source, so no one has to click through PayPal for each payment.
+4. PayPal's answer goes into the ledger as an execution record linked to the decision.
+
+The request ID is checked twice. Our engine refuses a request ID it has seen before. PayPal also refuses a second order with the same `invoice_id` (`DUPLICATE_INVOICE_ID` on its Orders v2 error page), so a replay fails even if someone goes around the engine.
+
+The card is a saved card's vault ID (`PAYPAL_CARD_VAULT_ID`) or a sandbox test card from PayPal's card generator. Only the gateway process reads it, and it never appears in what the agent sees, in the ledger or in a recorded cassette. Sending raw card fields to the API outside a sandbox needs PCI SAQ D compliance, which is why the vault ID comes first. This build calls the sandbox only: it refuses to start with any other PayPal host.
+
+Try it with no keys and no network, on recorded responses:
+
+```bash
+python -m intent_pay pay --policy policies/paypal-sandbox.toml --intent examples/intent-monthly.json --replay tests/fixtures/paypal/pay-completed.json
+python -m intent_pay pay --policy policies/paypal-sandbox.toml --intent examples/intent-annual.json --replay tests/fixtures/paypal/pay-completed.json
+python -m intent_pay refund --policy policies/paypal-sandbox.toml --receipt 1 --replay tests/fixtures/paypal/refund-completed.json
+python -m intent_pay verify
+```
+
+The first payment is allowed and captured. The annual one is refused by the per-payment limit and never reaches PayPal. Delete `state/ledger.jsonl` to start over.
+
+Against your own sandbox: create an app at developer.paypal.com, put its client ID and secret and a test card in `.env`, and write your sandbox business account's e-mail as the payee in the policy and the example intents. Then run the same commands without `--replay`. Add `--record state/cassettes/pay.json` to save every exchange with the keys, the token and the card removed.
+
+The cassettes in `tests/fixtures/paypal/` are built from the examples in PayPal's published API reference, with IDs and amounts changed to fit the tests. They were not recorded from a sandbox. Each file says so in its `_source` field.
 
 ## Run the tests
 

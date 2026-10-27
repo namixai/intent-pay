@@ -1,0 +1,8 @@
+{
+  "request_id": "acme-2026-10-annual",
+  "amount": "490.00",
+  "currency": "USD",
+  "payee": "billing@acme.example",
+  "purpose": "Acme Analytics, annual plan",
+  "billing": "annual"
+}
