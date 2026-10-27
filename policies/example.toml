@@ -1,0 +1,14 @@
+# An owner's spending policy. The engine reads it at start; the agent never sees it change.
+# Money is written as strings so no amount passes through a float.
+# Every number here is an example for the demo, not a recommendation.
+
+# Who may be paid. List payees, merchant categories, or both; with both, a payment must match
+# both lists. A policy that lists neither does not load.
+payees = ["billing@acme.example"]
+merchant_categories = ["5734", "7372"]   # Visa MCC 5734 software stores, 7372 programming and data processing (Visa Merchant Data Standards Manual)
+
+# One table per allowed currency. A currency with no table is refused.
+[currencies.USD]
+per_payment = "60.00"     # the most one payment may be
+daily = "100.00"          # the most all payments allowed on one UTC day may add up to
+min_balance = "1000.00"   # the cash reserve: refuse anything that would leave less than this
