@@ -8,13 +8,16 @@ Work in progress. This commit sets up the project, the test run and the CI. The 
 
 ## Run the tests
 
-Python 3.11 or newer.
+Python 3.11 or newer. On macOS or Linux:
 
 ```bash
 python -m venv .venv
-.venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m pytest
 ```
+
+On Windows, activate with `.venv\Scripts\activate` instead of the `source` line.
 
 ## Keys
 
