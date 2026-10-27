@@ -22,6 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 FIX = ROOT / "tests" / "fixtures" / "paypal"
 SECRET = "client-secret-never-printed"
 CARD_NUMBER = "4012888888881881"
+CAPTURE = "5S461376DW338105P"  # recorded in pay-completed.json
 # The real environment (Windows needs SYSTEMROOT), minus anything that could carry keys into the test.
 CLEAN_ENV = {**{k: v for k, v in os.environ.items() if not k.startswith(("PAYPAL_", "AIRWALLEX_", "INTENT_PAY_"))},
              "PYTHONPATH": str(ROOT / "src")}
@@ -49,7 +50,7 @@ def test_allowed_proposal_is_paid_and_recorded(ledger, clock):
     assert out.execution.decision_seq == out.receipt.seq == 1 and out.execution.seq == 2
     records = ledger.records()
     assert [r["kind"] for r in records] == ["decision", "execution"]
-    assert records[1]["reference"] == "3C679366HH908993F"
+    assert records[1]["reference"] == CAPTURE
     assert [s["call"] for s in records[1]["steps"]] == ["create_order", "capture_order"]
     assert ledger.verify() == 2
 
@@ -66,7 +67,7 @@ def test_declined_payment_still_counts_against_the_day(ledger, clock):
     g, _ = gateway(ledger, clock, "pay-capture-declined.json")
     out = g.submit(intent(request_id="a", amount="60.00"))
     assert out.receipt.allowed and not out.payment.ok
-    assert out.execution.ok is False and out.execution.status == "UNPROCESSABLE_ENTITY:INSTRUMENT_DECLINED"
+    assert out.execution.ok is False and out.execution.status == "DECLINED"
     g2, _ = gateway(ledger, clock)
     assert g2.submit(intent(request_id="b", amount="40.00")).receipt.allowed
     assert g2.submit(intent(request_id="c", amount="0.01")).receipt.reason == "daily_limit_exceeded"
@@ -88,7 +89,7 @@ def test_refund_of_a_completed_payment(ledger, clock):
     g2, t = gateway(ledger, clock, "refund-completed.json")
     out = g2.refund(paid.receipt.seq)
     assert out.payment.ok and out.payment.operation == "refund"
-    assert t.calls[1]["url"].endswith("/v2/payments/captures/3C679366HH908993F/refund")
+    assert t.calls[1]["url"].endswith(f"/v2/payments/captures/{CAPTURE}/refund")
     assert [r["operation"] for r in ledger.records() if r["kind"] == "execution"] == ["pay", "refund"]
     with pytest.raises(GatewayError, match="already refunded"):
         g2.refund(paid.receipt.seq)

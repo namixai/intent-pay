@@ -1,5 +1,4 @@
-"""The PayPal adapter on cassettes. The cassettes are built from PayPal's published reference
-examples, not recorded from our sandbox (see each file's _source)."""
+"""The PayPal adapter on cassettes recorded from the PayPal sandbox (see each file's _source)."""
 
 import base64
 import json
@@ -16,6 +15,7 @@ from intent_pay.ledger import Receipt
 FIX = pathlib.Path(__file__).parent / "fixtures" / "paypal"
 CARD = CardSource(number="4012888888881881", expiry="2030-12", security_code="123", name="Owner Card")
 SECRET = "client-secret-never-printed"
+ORDER, CAPTURE, REFUND = "3B048052DS900025X", "5S461376DW338105P", "38J69305F2856770N"  # recorded IDs
 
 
 def config(card=CARD):
@@ -39,7 +39,7 @@ def body(call):
 def test_pay_creates_then_captures_with_the_card():
     p, t = payer("pay-completed.json")
     r = p.pay(Intent.parse(intent(payee="billing@acme.example")), receipt())
-    assert r.ok and r.status == "COMPLETED" and r.reference == "3C679366HH908993F"
+    assert r.ok and r.status == "COMPLETED" and r.reference == CAPTURE
     assert [s["call"] for s in r.steps] == ["create_order", "capture_order"]
     assert t.finished
 
@@ -75,34 +75,41 @@ def test_order_without_payee_lets_paypal_pay_the_app_account():
     assert "payee" not in body(t.calls[1])["purchase_units"][0]
 
 
-def test_declined_card_is_a_failed_payment_with_paypal_reason():
+def test_declined_card_is_a_failed_payment():
+    # PayPal answers the capture of a refused card with HTTP 201; the capture itself says DECLINED.
     p, t = payer("pay-capture-declined.json")
     r = p.pay(Intent.parse(intent()), receipt())
-    assert not r.ok and r.reference is None
-    assert r.status == "UNPROCESSABLE_ENTITY:INSTRUMENT_DECLINED"
-    assert "debug_id f0d1example" in r.detail
-    assert r.steps[-1]["http"] == 422 and r.steps[-1]["debug_id"] == "f0d1example"
-
-
-def test_capture_declined_with_http_201_is_not_a_payment():
-    # A capture can come back 201 with the capture itself DECLINED; the HTTP code is not the answer.
-    cassette = json.loads((FIX / "pay-completed.json").read_text())
-    cassette["exchanges"][2]["response"]["body"]["purchase_units"][0]["payments"]["captures"][0]["status"] = "DECLINED"
-    r = PayPalPayer(PayPalClient(config(), ReplayTransport(cassette))).pay(Intent.parse(intent()), receipt())
     assert not r.ok and r.status == "DECLINED" and r.reference is None
+    assert r.steps[-1]["http"] == 201 and t.finished
 
 
-def test_duplicate_invoice_stops_before_capture():
+def test_reused_invoice_id_is_refused_by_paypal_at_capture():
+    # A new PayPal-Request-Id with an invoice_id PayPal has already been paid for: the order is
+    # created, the capture is refused.
     p, t = payer("pay-duplicate-invoice.json")
     r = p.pay(Intent.parse(intent()), receipt())
-    assert not r.ok and r.status == "UNPROCESSABLE_ENTITY:DUPLICATE_INVOICE_ID"
-    assert t.finished and len(t.calls) == 2  # token, create; no capture attempted
+    assert not r.ok and r.reference is None and r.status == "UNPROCESSABLE_ENTITY:DUPLICATE_INVOICE_ID"
+    assert "debug_id ca51308ad1b61" in r.detail
+    assert r.steps[-1]["http"] == 422 and r.steps[-1]["debug_id"] == "ca51308ad1b61" and t.finished
+
+
+def test_same_request_id_gets_paypal_first_answer_back():
+    # The same PayPal-Request-Id headers again: PayPal answers 200 with the first order and capture.
+    p, t = payer("pay-same-request-id.json")
+    r = p.pay(Intent.parse(intent()), receipt())
+    assert r.ok and r.reference == CAPTURE and [s["http"] for s in r.steps] == [200, 200]
+
+
+def test_account_without_card_processing_is_a_failed_payment():
+    p, t = payer("pay-card-not-enabled.json")
+    r = p.pay(Intent.parse(intent()), receipt())
+    assert not r.ok and r.status == "UNPROCESSABLE_ENTITY:PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING" and t.finished
 
 
 def test_refund():
     p, t = payer("refund-completed.json")
-    r = p.refund("3C679366HH908993F", "req-1")
-    assert r.ok and r.operation == "refund" and r.reference == "58K15806CS993444T"
+    r = p.refund(CAPTURE, "req-1")
+    assert r.ok and r.operation == "refund" and r.reference == REFUND
     assert t.calls[1]["headers"]["PayPal-Request-Id"] == "req-1-refund"
     assert body(t.calls[1]) == {}
 
@@ -114,7 +121,7 @@ def test_token_is_reused_until_it_expires():
     client = PayPalClient(config(), ReplayTransport({"exchanges": [token, create, token, capture]}), clock=lambda: now[0])
     client.create_order(Intent.parse(intent()), receipt())
     now[0] = 32400 - 59  # within PayPal's expires_in, but inside our one-minute margin
-    client.capture_order("5O190127TN364715T", "req-1")
+    client.capture_order(ORDER, "req-1")
     assert client.transport.finished
 
 

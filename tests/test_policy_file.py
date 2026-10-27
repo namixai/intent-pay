@@ -56,3 +56,18 @@ def test_unreadable_policy_file(tmp_path):
     bad.write_text("currencies = [")
     with pytest.raises(PolicyError, match="cannot read policy"):
         Policy.load(bad)
+
+
+SHIPPED = pathlib.Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize("path", sorted((SHIPPED / "policies").glob("*.toml")), ids=lambda p: p.name)
+def test_every_shipped_policy_loads(path):
+    assert Policy.load(path).hash
+
+
+@pytest.mark.parametrize("path", sorted((SHIPPED / "examples").glob("*.json")), ids=lambda p: p.name)
+def test_every_example_intent_parses(path):
+    import json
+    from intent_pay.intent import Intent
+    assert Intent.parse(json.loads(path.read_text()))
