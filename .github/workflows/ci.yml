@@ -10,13 +10,20 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python: ["3.11", "3.13"]
+        include:
+          # Judges may run the demo on Windows.
+          - os: windows-latest
+            python: "3.13"
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -28,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: refuse committed env files and keys
         run: |
           found=$(git ls-files | grep -E '(^|/)\.env($|\.)|\.pem$|\.key$' | grep -v '^\.env\.example$' || true)

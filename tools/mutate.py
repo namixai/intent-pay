@@ -55,7 +55,7 @@ MUTATIONS = [
     ("no lock between threads", "src/intent_pay/ledger.py",
      "        with self._lock:\n", "        if True:\n"),
     ("no file lock between processes", "src/intent_pay/ledger.py",
-     "fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)", "pass"),
+     "fcntl.flock(fh.fileno(), fcntl.LOCK_EX)", "pass"),
     ("malformed does not burn its ID", "src/intent_pay/policy.py",
      "request_id = request_id if isinstance(request_id, str) and 0 < len(request_id) <= 64 else None",
      "request_id = None"),

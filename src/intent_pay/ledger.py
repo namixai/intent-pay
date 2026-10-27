@@ -29,10 +29,11 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterator
 
-try:  # one process should own a ledger file; the lock keeps a second one honest where it exists
+try:
     import fcntl
 except ImportError:  # pragma: no cover - Windows
     fcntl = None
+    import msvcrt
 
 VERSION = "1"
 GENESIS = "0" * 64
@@ -125,6 +126,21 @@ class LedgerState:
         return total
 
 
+def _lock(fh: Any) -> None:
+    """Exclusive lock on the side file `<ledger>.lock`, held across processes."""
+    if fcntl is not None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+    else:  # pragma: no cover - Windows: lock byte 0; LK_LOCK retries for about 10 s, then raises
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+
+
+def _unlock(fh: Any) -> None:
+    if fcntl is None:  # pragma: no cover - Windows; flock is released by closing the file
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+
+
 def _verify_lines(lines: list[str]) -> LedgerState:
     state = LedgerState()
     for number, line in enumerate(lines, start=1):
@@ -166,18 +182,25 @@ class Ledger:
         inside one session, so two proposals with the same request ID cannot both pass."""
         with self._lock:
             lock_file = None
+            locked = False
             try:
-                if self.path is not None and fcntl is not None:
+                if self.path is not None:
                     try:
                         self.path.parent.mkdir(parents=True, exist_ok=True)
-                        lock_file = open(self.path.with_name(self.path.name + ".lock"), "a")
-                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                        lock_file = open(self.path.with_name(self.path.name + ".lock"), "a+")
+                        _lock(lock_file)
+                        locked = True
                     except OSError as exc:
                         raise LedgerError(f"cannot lock the ledger: {exc}") from None
                 yield _verify_lines(self._read_lines())
             finally:
                 if lock_file is not None:
-                    lock_file.close()  # closing releases the flock
+                    if locked:
+                        try:
+                            _unlock(lock_file)
+                        except OSError:
+                            pass  # closing the file releases it as well
+                    lock_file.close()
 
     def append(self, state: LedgerState, *, decision: str, reason: str, detail: str,
                request_id: str | None, intent: dict[str, Any] | None, policy_hash: str,
@@ -227,7 +250,7 @@ class Ledger:
             return
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.path, "a", encoding="utf-8") as fh:
+            with open(self.path, "a", encoding="utf-8", newline="\n") as fh:
                 fh.write(line + "\n")
                 fh.flush()
                 os.fsync(fh.fileno())

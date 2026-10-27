@@ -51,15 +51,18 @@ The ledger is a JSON Lines file, one receipt per line. Each receipt carries the 
 
 ## Run the tests
 
-Python 3.11 or newer.
+Python 3.11 or newer. On macOS or Linux:
 
 ```bash
 python -m venv .venv
-.venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m pytest
 ```
 
-Every refusal has its own test. `tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each.
+On Windows, activate with `.venv\Scripts\activate` instead of the `source` line.
+
+Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each.
 
 ## Keys
 
