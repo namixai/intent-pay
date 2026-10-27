@@ -23,6 +23,7 @@ import base64
 import json
 import os
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
@@ -121,10 +122,17 @@ class PayPalClient:
         self.clock = clock
         self._token: str | None = None
         self._token_expires = 0.0
+        # One token fetch at a time; threads that arrive meanwhile reuse the token it got.
+        self._token_lock = threading.Lock()
 
     def _access_token(self) -> str:
-        if self._token and self.clock() < self._token_expires:
-            return self._token
+        with self._token_lock:
+            token = self._token
+            if token and self.clock() < self._token_expires:
+                return token
+            return self._fetch_token()
+
+    def _fetch_token(self) -> str:
         basic = base64.b64encode(f"{self.config.client_id}:{self.config.client_secret}".encode()).decode()
         resp = self.transport("POST", self.config.base_url + "/v1/oauth2/token",
                               {"Authorization": f"Basic {basic}", "Accept": "application/json",
@@ -134,19 +142,27 @@ class PayPalClient:
         if resp.status != 200 or not body.get("access_token"):
             raise PayPalError(f"token request failed: HTTP {resp.status} {body.get('error', '')} "
                               f"{body.get('error_description', '')}".rstrip())
-        self._token = body["access_token"]
+        token = body["access_token"]
+        self._token = token
         self._token_expires = self.clock() + max(0, int(body.get("expires_in", 0)) - TOKEN_MARGIN_S)
-        return self._token
+        return token
+
+    def _drop_token(self, token: str) -> None:
+        """Forget `token` after a 401, unless another thread has already replaced it."""
+        with self._token_lock:
+            if self._token == token:
+                self._token = None
 
     def call(self, method: str, path: str, body: dict[str, Any] | None, request_id: str) -> Response:
         for attempt in (1, 2):
-            headers = {"Authorization": f"Bearer {self._access_token()}", "Content-Type": "application/json",
+            token = self._access_token()
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
                        "Prefer": "return=representation", "PayPal-Request-Id": request_id}
             data = json.dumps(body).encode("utf-8") if body is not None else b"{}"
             resp = self.transport(method, self.config.base_url + path, headers, data)
             if resp.status != 401 or attempt == 2:
                 return resp
-            self._token = None  # expired or revoked early: fetch a new one and try once more
+            self._drop_token(token)  # expired or revoked early: fetch a new one and try once more
         raise AssertionError("unreachable")
 
     def create_order(self, intent: Intent, receipt: Receipt) -> Response:

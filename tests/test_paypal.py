@@ -176,3 +176,31 @@ def test_bad_config_is_refused_without_echoing_values(change, message):
     with pytest.raises(ConfigError, match=message) as err:
         PayPalConfig.from_env({**ENV, **change})
     assert SECRET not in str(err.value) and "4012" not in str(err.value)
+
+
+def test_threads_share_one_token_fetch():
+    import threading
+    import time
+    cassette = json.loads((FIX / "pay-completed.json").read_text())
+    token, create, _ = cassette["exchanges"]
+    replay = ReplayTransport({"exchanges": [token] + [create] * 4})
+
+    def slow_token(method, url, headers, body):
+        if url.endswith("/v1/oauth2/token"):
+            time.sleep(0.05)  # long enough for every thread to arrive while the first one waits
+        return replay(method, url, headers, body)
+
+    client = PayPalClient(config(), slow_token)
+    errors = []
+    def run():
+        try:
+            assert client.create_order(Intent.parse(intent()), receipt()).status == 201
+        except Exception as exc:
+            errors.append(exc)
+    threads = [threading.Thread(target=run) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == [] and replay.finished
+    assert sum(c["url"].endswith("/v1/oauth2/token") for c in replay.calls) == 1
