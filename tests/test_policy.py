@@ -189,7 +189,7 @@ def test_refuse_ledger_unavailable_when_ledger_cannot_be_written(engine, monkeyp
         raise OSError(28, "No space left on device")
     monkeypatch.setattr("intent_pay.ledger.os.fsync", disk_full)
     r = refused(engine.decide(intent()), Reason.LEDGER_UNAVAILABLE)
-    # Every rule said yes; without a receipt safely on disk the answer is still no.
+    # Every rule said yes; without a receipt written to disk the answer is still no.
     assert not r.recorded and "No space left" in r.detail
 
 
