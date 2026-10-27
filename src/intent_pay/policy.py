@@ -187,6 +187,12 @@ class Engine:
     def decide(self, proposal: Any) -> Receipt:
         """Never raises: whatever goes wrong comes back as a refusal."""
         try:
+            return self._decide(proposal)
+        except Exception as exc:  # fail-closed: nothing that breaks may read as an allow
+            return self._unrecorded(utc_now(), Reason.POLICY_ERROR, f"{type(exc).__name__}: {exc}", None, None)
+
+    def _decide(self, proposal: Any) -> Receipt:
+        try:
             now = self.clock()
             if not isinstance(now, datetime) or now.tzinfo is None:
                 raise ValueError("the clock must return a timezone-aware datetime")

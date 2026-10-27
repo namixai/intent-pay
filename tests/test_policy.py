@@ -258,3 +258,11 @@ def test_every_receipt_names_the_policy(engine):
     policy_hash = Policy.from_mapping(POLICY).hash
     assert engine.decide(intent()).policy_hash == policy_hash
     assert engine.decide(intent(request_id="x", amount="70.00")).policy_hash == policy_hash
+
+
+def test_decide_never_raises(engine, monkeypatch):
+    # A failure outside the rules and the ledger (here, the receipt cannot even be built) still
+    # comes back as a refusal, not as an exception the caller might treat as "no answer yet".
+    monkeypatch.setattr("intent_pay.ledger.canonical", lambda obj: 1 / 0)
+    r = refused(engine.decide(intent()), Reason.POLICY_ERROR)
+    assert not r.recorded and "ZeroDivisionError" in r.detail
