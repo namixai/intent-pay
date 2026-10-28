@@ -85,7 +85,7 @@ def test_declined_card_is_a_failed_payment():
 
 def test_reused_invoice_id_is_refused_by_paypal_at_capture():
     # A new PayPal-Request-Id with an invoice_id PayPal has already been paid for: the order is
-    # created, the capture is refused.
+    # created, the capture is refused. Only on an account that blocks duplicate invoice IDs.
     p, t = payer("pay-duplicate-invoice.json")
     r = p.pay(Intent.parse(intent()), receipt())
     assert not r.ok and r.reference is None and r.status == "UNPROCESSABLE_ENTITY:DUPLICATE_INVOICE_ID"

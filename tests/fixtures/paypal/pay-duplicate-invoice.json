@@ -1,5 +1,5 @@
 {
-  "_source": "Recorded from https://api-m.sandbox.paypal.com on 2026-10-27 with `python -m intent_pay ... --record`; the recorder removed the keys, the access token and the card fields. Recorded with a one-off script: a new order with the invoice_id of pay-completed.json and new PayPal-Request-Id headers. PayPal created the order and refused the capture with DUPLICATE_INVOICE_ID.",
+  "_source": "Recorded from https://api-m.sandbox.paypal.com on 2026-10-27 with `python -m intent_pay ... --record`; the recorder removed the keys, the access token and the card fields. Recorded with a one-off script: a new order with the invoice_id of pay-completed.json and new PayPal-Request-Id headers. PayPal created the order and refused the capture with DUPLICATE_INVOICE_ID. The refusal comes from an account setting, as the error text says; the US Business sandbox account had duplicate invoice IDs blocked as created, and we did not change it.",
   "exchanges": [
     {
       "request": {

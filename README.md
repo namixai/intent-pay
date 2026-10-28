@@ -58,7 +58,7 @@ One payment, step by step:
 3. The gateway captures the order with the owner's card as the payment source (`POST /v2/checkout/orders/{id}/capture`). PayPal's Orders v2 reference allows a capture without buyer approval when the capture request carries a payment source, so no one has to click through PayPal for each payment.
 4. PayPal's answer goes into the ledger as an execution record linked to the decision.
 
-A repeated request ID meets three checks, and we watched each of them in the sandbox. Our engine refuses a request ID it has seen before and calls nothing. If the ledger is lost and the engine allows the intent again, the gateway sends the same `PayPal-Request-Id` headers, and PayPal answers with the first order and capture (HTTP 200 instead of 201) without moving money a second time. A new order that reuses a paid `invoice_id` under new headers gets created, and PayPal refuses its capture with `DUPLICATE_INVOICE_ID`.
+A repeated request ID meets three checks, and we watched each of them in the sandbox. Our engine refuses a request ID it has seen before and calls nothing. If the ledger is lost and the engine allows the intent again, the gateway sends the same `PayPal-Request-Id` headers, and PayPal answers with the first order and capture (HTTP 200 instead of 201) without moving money a second time. A new order that reuses a paid `invoice_id` under new headers gets created, and PayPal refuses its capture with `DUPLICATE_INVOICE_ID`. That third check is an account setting, not a rule of the API: PayPal's error says the account "requires that Invoice Id be unique". The US Business sandbox account we created had it on, and we did not change it. On an account that allows duplicate invoice IDs, only the first two checks remain.
 
 The card is a saved card's vault ID (`PAYPAL_CARD_VAULT_ID`) or a sandbox test card from PayPal's card generator. Only the gateway process reads it, and it never appears in what the agent sees, in the ledger or in a recorded cassette. Sending raw card fields to the API outside a sandbox needs PCI SAQ D compliance, which is why the vault ID comes first. This build calls the sandbox only: it refuses to start with any other PayPal host.
 
@@ -83,7 +83,13 @@ Against your own sandbox, at developer.paypal.com:
 python -m intent_pay pay --policy policies/paypal-sandbox-live.toml --intent examples/intent-live.json
 ```
 
-The live policy allows merchant categories instead of payees and the intent names no payee, so you don't need your sandbox account's e-mail. Add `--record state/cassettes/pay.json` to save every exchange with the keys, the token and the card removed. Set `PAYPAL_CARD_NAME=CCREJECT-REFUSED` to see a refused card.
+The live policy allows merchant categories instead of payees and the intent names no payee, so you don't need your sandbox account's e-mail. Add `--record state/cassettes/pay.json` to save every exchange with the keys, the token and the card removed. Run the same command a second time and the engine refuses it with `duplicate_request_id` before PayPal is called.
+
+To see a refused card, use the second intent file. It has its own request ID, because the ledger has already decided the first one:
+
+```bash
+PAYPAL_CARD_NAME=CCREJECT-REFUSED python -m intent_pay pay --policy policies/paypal-sandbox-live.toml --intent examples/intent-live-refused.json
+```
 
 The cassettes in `tests/fixtures/paypal/` were recorded from the PayPal sandbox on 2026-10-27 with `--record`. Each file's `_source` field says what was sent.
 
