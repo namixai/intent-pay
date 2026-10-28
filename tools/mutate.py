@@ -104,6 +104,22 @@ MUTATIONS = [
      "if amount != amount.quantize(Decimal(1).scaleb(-places)):", "if False:"),
     ("policy with no allowlist loads", "src/intent_pay/policy.py",
      "if payees is None and categories is None:", "if False:"),
+    ("agent reads any page", "src/intent_pay/agent.py",
+     'if args.get("url") != page.get("url"):', "if not page:"),
+    ("scripted agent claims every payment", "src/intent_pay/agent.py",
+     '    if payment.get("ok"):\n        return f"Paid.', '    if True:\n        return f"Paid.'),
+    ("run tag not put into request IDs", "src/intent_pay/agent.py",
+     'return value.replace("{run}", run)', "return value"),
+    ("model turns unbounded", "src/intent_pay/agent.py",
+     "        for _ in range(MAX_TURNS):\n            response", "        for _ in range(MAX_TURNS * 100):\n            response"),
+    ("tool error reported as success", "src/intent_pay/agent.py",
+     '"content": json.dumps(seen), "is_error": is_error}', '"content": json.dumps(seen), "is_error": False}'),
+    ("reset keeps the old ledger", "src/intent_pay/agent.py",
+     '    while (directory / f"{prefix}{tag}.jsonl").exists():', "    while False:"),
+    ("page header not required", "src/intent_pay/web.py",
+     'if not self._local() or self.headers.get("X-Intent-Pay") != "1":', "if not self._local():"),
+    ("any host name accepted", "src/intent_pay/web.py",
+     "            return host in LOCAL_HOSTS", "            return True"),
 ]
 
 

@@ -13,6 +13,8 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# Only for INTENT_PAY_AGENT=claude. The scripted demo, the policy and the PayPal adapter need nothing.
+agent = ["anthropic>=2.3"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

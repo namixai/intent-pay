@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>intent-pay demo</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>intent-pay</h1>
+      <p class="tagline">The agent proposes a payment. A policy in plain code decides. Only the gateway holds the PayPal sandbox key.</p>
+    </div>
+    <dl class="mode" id="mode"></dl>
+  </header>
+
+  <nav class="steps" id="steps" aria-label="Demo steps"></nav>
+
+  <main class="lanes" id="detail">
+    <p class="empty">Loading the scenario.</p>
+  </main>
+
+  <section class="ledger" aria-labelledby="ledger-title">
+    <div class="ledger-head">
+      <h2 id="ledger-title">Ledger</h2>
+      <span class="chain" id="chain"></span>
+      <button type="button" class="quiet" id="reset">Start over</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Record</th><th>Request ID</th><th>Result</th><th>Time (UTC)</th><th>Hash</th><th>Previous</th></tr>
+        </thead>
+        <tbody id="ledger"></tbody>
+      </table>
+    </div>
+    <p class="path" id="ledger-path"></p>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>

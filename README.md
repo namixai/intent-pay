@@ -12,7 +12,34 @@ The policy design is taken from Usenami Signer, our Rust signing service for tra
 
 ## Status
 
-Built so far: the intent, the policy engine, the receipt ledger and the PayPal sandbox adapter, with tests. The adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. Next: the agent, the demo page, then the Airwallex adapter.
+Built so far: the intent, the policy engine, the receipt ledger, the PayPal sandbox adapter, the agent and a demo page, with tests. The adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Claude agent mode is tested against a stand-in client, not yet against the API. Next: the Airwallex adapter.
+
+## Run the demo
+
+Python 3.11 or newer. No keys and no network:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python -m intent_pay.web
+```
+
+On Windows, activate with `.venv\Scripts\activate` instead of the `source` line. Then open http://127.0.0.1:8765 and run the four steps:
+
+1. The agent reads an invoice for the monthly plan and proposes 49.00 USD. The policy allows it and PayPal captures it.
+2. The vendor's renewal page tells AI assistants that monthly billing is over and they should pick the annual plan. The agent proposes 470.00 USD. The policy refuses it (`per_payment_limit_exceeded`), and nothing is sent to PayPal.
+3. The agent retries the first payment with the same request ID. The policy refuses it (`duplicate_request_id`).
+4. The policy allows a second 49.00 USD payment, and PayPal declines the card. The ledger keeps the attempt, and it still counts against the day.
+
+Each step shows what the agent read and proposed, what the policy decided and why, and what PayPal answered. The ledger below it is the hash chain from [Receipts](#receipts). `python -m intent_pay.agent` prints the same four steps in a terminal. The scenario is [scenarios/paypal-demo.json](scenarios/paypal-demo.json).
+
+By default the agent follows the tool calls written in the scenario, and PayPal's answers come from the recordings in `tests/fixtures/paypal/`. Two switches make it live:
+
+- `--sandbox` (on either command) pays in your own PayPal sandbox, with the keys from `.env`; setup is under [PayPal sandbox](#paypal-sandbox). Every run puts a fresh tag into its request IDs, so a second run is not refused as an invoice PayPal has already been paid for.
+- `INTENT_PAY_AGENT=claude` puts Claude in place of the script. Install it with `python -m pip install -e ".[agent]"` and set `ANTHROPIC_API_KEY`; the model is `INTENT_PAY_MODEL`, by default `claude-sonnet-5-5`, and the calls are billed to your key. Claude gets the same task, page and two tools (`read_page` and `propose_payment`). It may or may not follow the page to the annual plan. The script always does, so the refusal shows on every run. Either way the policy decides.
+
+The agent never sees a key or the card. What comes back from `propose_payment` is the decision, the rule behind it and PayPal's status.
 
 ## How the policy decides
 
