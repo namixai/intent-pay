@@ -22,9 +22,9 @@ from urllib.parse import urlsplit
 REDACTED = "REDACTED"
 SECRET_FIELDS = frozenset({
     "access_token", "refresh_token", "client_secret", "token",
-    "number", "expiry", "security_code", "cvv", "vault_id",
+    "number", "card_number", "expiry", "security_code", "cvv", "vault_id",
 })
-KEPT_HEADERS = frozenset({"content-type", "prefer", "paypal-request-id", "x-client-id"})
+KEPT_HEADERS = frozenset({"content-type", "prefer", "paypal-request-id"})
 
 
 @dataclass(frozen=True)

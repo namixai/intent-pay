@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Protocol
 
-from intent_pay.intent import Intent
-from intent_pay.ledger import ALLOW, DECISION, Execution, Ledger, LedgerError, Receipt
+from intent_pay.intent import Intent, parse_money
+from intent_pay.ledger import ALLOW, DECISION, FORCED_CHARGE, Execution, Ledger, LedgerError, Receipt
 from intent_pay.policy import Engine, utc_now
 
 
@@ -112,6 +112,27 @@ class Gateway:
         reference = payments[-1]["reference"]
         result = self._call(lambda: self.payer.refund(reference, decision["request_id"]), "refund")
         return self._record(None, decision_seq, result)
+
+    def force_charge(self, request_id: str, amount: Any, currency: str, merchant_category: str | None) -> Outcome:
+        """Charge the card of an allowed payment directly, as a vendor holding the card could,
+        without asking the policy. Sandbox only: it needs a payer that can play the vendor
+        (Airwallex's issuing simulation). The answer is recorded against the decision that
+        created the card, so the ledger shows what the card did on its own."""
+        simulate = getattr(self.payer, "simulate_charge", None)
+        if simulate is None:
+            raise GatewayError(f"{self.payer.provider} cannot simulate a vendor's charge")
+        with self.ledger.session() as state:
+            seq = state.request_ids.get(request_id)
+            decision = state.record(seq) if seq is not None else None
+            if decision is None or decision["kind"] != DECISION or decision["decision"] != ALLOW:
+                raise GatewayError(f"request {request_id} has no allowed decision")
+            done = state.executions.get(seq, [])
+        cards = [e["reference"] for e in done if e["operation"] == "pay" and e["ok"] and e["reference"]]
+        if not cards:
+            raise GatewayError(f"request {request_id} has no card")
+        money = parse_money(amount, currency)
+        result = self._call(lambda: simulate(cards[-1], money, currency, merchant_category), FORCED_CHARGE)
+        return self._record(None, seq, result)
 
     def _call(self, fn: Callable[[], PaymentResult], operation: str) -> PaymentResult:
         try:

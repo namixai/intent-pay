@@ -43,7 +43,9 @@ ALLOW = "allow"
 REFUSE = "refuse"
 DECISION = "decision"
 EXECUTION = "execution"
-OPERATIONS = ("pay", "refund")
+# forced_charge: a vendor charging an allowed payment's card directly, in a sandbox simulation.
+FORCED_CHARGE = "forced_charge"
+OPERATIONS = ("pay", "refund", FORCED_CHARGE)
 
 _PATH_LOCKS: dict[str, threading.Lock] = {}
 _PATH_LOCKS_GUARD = threading.Lock()

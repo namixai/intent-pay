@@ -1,0 +1,139 @@
+{
+  "_source": "Written by hand from the Airwallex API reference (read 2026-10-28), NOT recorded from the sandbox: the sandbox key did not log in yet. A run with --sandbox --record replaces this file. Step 1: the reserve check, the cardholder lookup, a card for the allowed 49.00 USD, its authorization and capture.",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/authentication/login",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "token": "REDACTED",
+          "expires_at": "2026-10-28T13:00:00+0000"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/balances/current",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "account_type": "MULTI_CURRENCY",
+            "currency": "USD",
+            "available_amount": 5000.0,
+            "pending_amount": 0,
+            "prepayment_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 5000.0
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/issuing/cardholders?email=agent%40intent-pay.example&cardholder_status=READY",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "has_more": false,
+          "items": [
+            {
+              "cardholder_id": "ch000000-0000-4000-8000-000000000001",
+              "email": "agent@intent-pay.example",
+              "status": "READY",
+              "type": "INDIVIDUAL"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/issuing/cards/create",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "card_id": "c0ffee00-0000-4000-8000-000000000001",
+          "card_status": "ACTIVE",
+          "form_factor": "VIRTUAL",
+          "nick_name": "intent-pay acme-nov-t",
+          "card_number": "REDACTED"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/simulation/issuing/create",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "card_id": "c0ffee00-0000-4000-8000-000000000001",
+          "card_transaction_id": "tx000000-0000-4000-8000-000000000001",
+          "card_transaction_lifecycle_id": "1f000000-0000-4000-8000-000000000049",
+          "process_result": "APPROVED",
+          "type": "AUTHORIZATION",
+          "subtype": "AUTHORIZATION",
+          "transaction_amount": 49,
+          "transaction_currency": "USD",
+          "merchant": {
+            "category_code": "7372"
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/simulation/issuing/card_transaction_lifecycles/1f000000-0000-4000-8000-000000000049/capture",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "card_id": "c0ffee00-0000-4000-8000-000000000001",
+          "card_transaction_id": "tx000000-0000-4000-8000-000000000002",
+          "card_transaction_lifecycle_id": "1f000000-0000-4000-8000-000000000049",
+          "process_result": "APPROVED",
+          "type": "CLEARING",
+          "subtype": "CLEARING",
+          "transaction_amount": 49,
+          "transaction_currency": "USD"
+        }
+      }
+    }
+  ]
+}
