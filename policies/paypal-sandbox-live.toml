@@ -1,0 +1,8 @@
+# For a run against your own PayPal sandbox app. Every number here is an example.
+# It allows merchant categories, not payees, so the intent can leave the payee out and PayPal pays
+# the app's own sandbox business account. You do not need to look up that account's e-mail.
+merchant_categories = ["5734", "7372"]
+
+[currencies.USD]
+per_payment = "60.00"
+daily = "100.00"

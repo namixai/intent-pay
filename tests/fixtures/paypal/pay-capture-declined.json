@@ -1,5 +1,5 @@
 {
-  "_source": "Shapes from PayPal's own reference examples in checkout_orders_v2.json (Orders 2.32) and payments_payment_v2.json (Payments 2.12), github.com/paypal/paypal-rest-api-specifications, read 2026-10-27. IDs and amounts edited to match the test intent. NOT recorded from our sandbox: replace with `python -m intent_pay pay --record` output once a sandbox app exists.",
+  "_source": "Recorded from https://api-m.sandbox.paypal.com on 2026-10-27 with `python -m intent_pay ... --record`; the recorder removed the keys, the access token and the card fields. Card holder name CCREJECT-REFUSED, PayPal's sandbox trigger for a refused card. The capture answers HTTP 201 with the capture DECLINED.",
   "exchanges": [
     {
       "request": {
@@ -17,12 +17,12 @@
       "response": {
         "status": 200,
         "body": {
-          "scope": "https://uri.paypal.com/services/payments/payment",
+          "scope": "https://uri.paypal.com/services/checkout/one-click-with-merchant-issued-token https://uri.paypal.com/services/payments/futurepayments https://uri.paypal.com/services/disputes/read-buyer https://uri.paypal.com/services/payments/realtimepayment https://uri.paypal.com/services/subscriptions/confirm-payment https://uri.paypal.com/services/payments/client-payments-eligibility https://api.paypal.com/v1/vault/credit-card https://api.paypal.com/v1/payments/.* https://uri.paypal.com/services/wallet/mandates/write https://uri.paypal.com/services/applications/webhooks https://uri.paypal.com/services/pricing/exchange-currency/read https://uri.paypal.com/services/credit/client-offer-presentment/read https://uri.paypal.com/services/disputes/update-seller https://uri.paypal.com/services/payments/payment/authcapture openid https://uri.paypal.com/services/disputes/read-seller https://uri.paypal.com/services/payments/orders/client_sdk_orders_api https://uri.paypal.com/services/payments/refund https://uri.paypal.com/services/disputes/create https://uri.paypal.com/services/pricing/quote-exchange-rates/read https://uri.paypal.com/services/documents/disputes/download https://uri.paypal.com/services/billing-agreements https://uri.paypal.com/services/checkout/payment-resources https://uri.paypal.com/services/wallet/mandates/read https://uri.paypal.com/payments/payouts https://api.paypal.com/v1/vault/credit-card/.* https://uri.paypal.com/services/shipping/trackers/readwrite https://uri.paypal.com/services/subscriptions",
           "access_token": "REDACTED",
           "token_type": "Bearer",
-          "app_id": "APP-80W284485P519543T",
-          "expires_in": 32400,
-          "nonce": "2026-10-27T12:00:00ZexampleNonce"
+          "app_id": "APP-3GY213195V2998216",
+          "expires_in": 32354,
+          "nonce": "2026-10-27T16:20:05ZhWOqDInaWgT0KMIcqTdNb8E1GSjDTpLXnIfE02Thbp0"
         }
       }
     },
@@ -33,45 +33,65 @@
         "headers": {
           "Content-Type": "application/json",
           "Prefer": "return=representation",
-          "PayPal-Request-Id": "req-1-order"
+          "PayPal-Request-Id": "live-2026-10-27-decline-1-order"
         },
-        "body": null
+        "body": {
+          "intent": "CAPTURE",
+          "purchase_units": [
+            {
+              "reference_id": "live-2026-10-27-decline-1",
+              "invoice_id": "live-2026-10-27-decline-1",
+              "custom_id": "receipt:1:1bd10b39109550fa",
+              "description": "Acme Analytics, monthly plan, October",
+              "amount": {
+                "currency_code": "USD",
+                "value": "49.00"
+              }
+            }
+          ]
+        }
       },
       "response": {
         "status": 201,
         "body": {
-          "id": "5O190127TN364715T",
-          "status": "CREATED",
+          "id": "7VE30589KB568692M",
           "intent": "CAPTURE",
+          "status": "CREATED",
           "purchase_units": [
             {
-              "reference_id": "req-1",
-              "invoice_id": "req-1",
-              "custom_id": "receipt:1:0000000000000000",
+              "reference_id": "live-2026-10-27-decline-1",
               "amount": {
                 "currency_code": "USD",
                 "value": "49.00"
               },
               "payee": {
-                "email_address": "billing@acme.example",
-                "merchant_id": "Q7C9N6S4YRQXG"
-              }
+                "email_address": "sb-ikcou53471331@business.example.com",
+                "merchant_id": "MU6VYKCH92UQG"
+              },
+              "description": "Acme Analytics, monthly plan, October",
+              "custom_id": "receipt:1:1bd10b39109550fa",
+              "invoice_id": "live-2026-10-27-decline-1"
             }
           ],
-          "create_time": "2026-10-27T12:00:01Z",
+          "create_time": "2026-10-27T16:20:52Z",
           "links": [
             {
-              "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T",
+              "href": "https://api.sandbox.paypal.com/v2/checkout/orders/7VE30589KB568692M",
               "rel": "self",
               "method": "GET"
             },
             {
-              "href": "https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T",
+              "href": "https://www.sandbox.paypal.com/checkoutnow?token=7VE30589KB568692M",
               "rel": "approve",
               "method": "GET"
             },
             {
-              "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T/capture",
+              "href": "https://api.sandbox.paypal.com/v2/checkout/orders/7VE30589KB568692M",
+              "rel": "update",
+              "method": "PATCH"
+            },
+            {
+              "href": "https://api.sandbox.paypal.com/v2/checkout/orders/7VE30589KB568692M/capture",
               "rel": "capture",
               "method": "POST"
             }
@@ -82,30 +102,124 @@
     {
       "request": {
         "method": "POST",
-        "path": "/v2/checkout/orders/5O190127TN364715T/capture",
+        "path": "/v2/checkout/orders/7VE30589KB568692M/capture",
         "headers": {
           "Content-Type": "application/json",
           "Prefer": "return=representation",
-          "PayPal-Request-Id": "req-1-capture"
+          "PayPal-Request-Id": "live-2026-10-27-decline-1-capture"
         },
         "body": {
           "payment_source": {
             "card": {
-              "vault_id": "REDACTED"
+              "number": "REDACTED",
+              "expiry": "REDACTED",
+              "security_code": "REDACTED",
+              "name": "CCREJECT-REFUSED"
             }
           }
         }
       },
       "response": {
-        "status": 422,
+        "status": 201,
         "body": {
-          "name": "UNPROCESSABLE_ENTITY",
-          "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
-          "debug_id": "f0d1example",
-          "details": [
+          "id": "7VE30589KB568692M",
+          "intent": "CAPTURE",
+          "status": "COMPLETED",
+          "payment_source": {
+            "card": {
+              "name": "CCREJECT-REFUSED",
+              "last_digits": "1881",
+              "expiry": "REDACTED",
+              "brand": "VISA",
+              "type": "CREDIT",
+              "bin_details": {}
+            }
+          },
+          "purchase_units": [
             {
-              "issue": "INSTRUMENT_DECLINED",
-              "description": "The instrument presented was either declined by the processor or bank, or it can't be used for this payment."
+              "reference_id": "live-2026-10-27-decline-1",
+              "amount": {
+                "currency_code": "USD",
+                "value": "49.00"
+              },
+              "payee": {
+                "email_address": "sb-ikcou53471331@business.example.com",
+                "merchant_id": "MU6VYKCH92UQG"
+              },
+              "description": "Acme Analytics, monthly plan, October",
+              "custom_id": "receipt:1:1bd10b39109550fa",
+              "invoice_id": "live-2026-10-27-decline-1",
+              "soft_descriptor": "TEST STORE",
+              "supplementary_data": {
+                "risk": {
+                  "risk_level_indicator": "HIGH_RISK"
+                }
+              },
+              "payments": {
+                "captures": [
+                  {
+                    "id": "32379980G5046762H",
+                    "status": "DECLINED",
+                    "amount": {
+                      "currency_code": "USD",
+                      "value": "49.00"
+                    },
+                    "final_capture": true,
+                    "seller_protection": {
+                      "status": "NOT_ELIGIBLE"
+                    },
+                    "seller_receivable_breakdown": {
+                      "gross_amount": {
+                        "currency_code": "USD",
+                        "value": "49.00"
+                      },
+                      "paypal_fee": {
+                        "currency_code": "USD",
+                        "value": "1.76"
+                      },
+                      "net_amount": {
+                        "currency_code": "USD",
+                        "value": "47.24"
+                      }
+                    },
+                    "invoice_id": "live-2026-10-27-decline-1",
+                    "custom_id": "receipt:1:1bd10b39109550fa",
+                    "links": [
+                      {
+                        "href": "https://api.sandbox.paypal.com/v2/payments/captures/32379980G5046762H",
+                        "rel": "self",
+                        "method": "GET"
+                      },
+                      {
+                        "href": "https://api.sandbox.paypal.com/v2/checkout/orders/7VE30589KB568692M",
+                        "rel": "up",
+                        "method": "GET"
+                      }
+                    ],
+                    "create_time": "2026-10-27T16:20:55Z",
+                    "update_time": "2026-10-27T16:20:55Z",
+                    "network_transaction_reference": {
+                      "id": "000000000000000",
+                      "date": "0203",
+                      "network": "VISA"
+                    },
+                    "processor_response": {
+                      "avs_code": "G",
+                      "cvv_code": "P",
+                      "response_code": "0500"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "create_time": "2026-10-27T16:20:55Z",
+          "update_time": "2026-10-27T16:20:55Z",
+          "links": [
+            {
+              "href": "https://api.sandbox.paypal.com/v2/checkout/orders/7VE30589KB568692M",
+              "rel": "self",
+              "method": "GET"
             }
           ]
         }

@@ -1,0 +1,8 @@
+{
+  "request_id": "acme-live-monthly-1",
+  "amount": "49.00",
+  "currency": "USD",
+  "merchant_category": "7372",
+  "purpose": "Acme Analytics, monthly plan",
+  "billing": "monthly"
+}
