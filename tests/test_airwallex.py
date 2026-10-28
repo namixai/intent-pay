@@ -10,7 +10,7 @@ import pytest
 from intent_pay.adapters.airwallex import (CARD_REASONS, DEMO_CARDHOLDER, MERCHANT_INFO, AirwallexClient, AirwallexConfig, AirwallexError,
                                            AirwallexPayer, ConfigError, card_controls)
 from intent_pay.adapters.http import ReplayTransport, Response
-from intent_pay.agent import ScriptedAgent, Scenario, run_step
+from intent_pay.agent import ScriptedAgent, Scenario, run_step, vendor_charge
 from intent_pay.gateway import Gateway, GatewayError
 from intent_pay.intent import Intent
 from intent_pay.ledger import Ledger, Receipt
@@ -110,10 +110,19 @@ def test_a_card_that_never_activates_is_not_charged():
 
 def test_a_declined_authorization_is_not_paid_and_names_the_reason():
     t = Fake(LOGIN, (202, {"card_id": "card-1", "card_status": "ACTIVE"}),
-             (201, {"process_result": "DECLINED", "failure_reason": "INSUFFICIENT_FUNDS"}))
+             (201, {"process_result": "DECLINED", "failure_reason": "INSUFFICIENT_FUNDS",
+                    "card_transaction_lifecycle_id": "lc-1"}))
     result = payer(t).pay(Intent.parse(MONTHLY), RECEIPT)
     assert not result.ok and result.status == "DECLINED:INSUFFICIENT_FUNDS" and result.reference is None
     assert len(t.calls) == 3  # no capture
+
+
+def test_a_capture_airwallex_does_not_approve_is_not_paid():
+    t = Fake(LOGIN, (202, {"card_id": "card-1", "card_status": "ACTIVE"}),
+             (201, {"process_result": "APPROVED", "card_transaction_lifecycle_id": "lc-1"}),
+             (200, {"process_result": "DECLINED", "failure_reason": "CARD_INACTIVE"}))
+    result = payer(t).pay(Intent.parse(MONTHLY), RECEIPT)
+    assert not result.ok and result.status == "DECLINED:CARD_INACTIVE" and result.reference is None
 
 
 def test_a_card_error_comes_back_with_airwallex_code():
@@ -242,6 +251,23 @@ def test_scenario_runs_the_four_submitted_steps(tmp_path):
     assert [e["kind"] for e in steps[2]] == ["task", "vendor_charge"]  # no agent, no proposal
     assert "Nothing was sent to Airwallex" in steps[1][-1]["text"]
     assert ledger.verify() == 5
+
+
+@pytest.mark.parametrize("answer, card", [
+    ({"process_result": "DECLINED", "failure_reason": "INSUFFICIENT_FUNDS", "card_transaction_lifecycle_id": "lc"},
+     "INSUFFICIENT_FUNDS"),
+    ({"process_result": "APPROVED", "card_transaction_lifecycle_id": "lc"}, None),
+])
+def test_a_card_that_answers_for_another_reason_does_not_match_the_receipt(tmp_path, answer, card):
+    ledger = Ledger(tmp_path / "l.jsonl")
+    gateway_on(FIXTURES / "pay-cleared.json", ledger).submit({**MONTHLY, "request_id": "acme-nov-t"})
+    gateway_on(FIXTURES / "pay-cleared.json", ledger).submit({**MONTHLY, "request_id": "acme-dec-t", "amount": "470.00"})
+    t = Fake(LOGIN, (201, answer), (200, {"process_result": "APPROVED"}))
+    p = payer(t)
+    step = {"task": "vendor", "vendor_charge": {"card_of": "acme-nov-t", "amount": "470.00", "currency": "USD",
+                                                "merchant_category": "7372", "refused_as": "acme-dec-t"}}
+    compare = vendor_charge(step, Gateway(Engine(POLICY, ledger), p))[-1]["compare"]
+    assert compare["expected"] == "LIMIT_EXCEEDED" and compare["card"] == card and compare["match"] is False
 
 
 def test_refused_steps_have_no_recording_and_make_no_call(tmp_path):

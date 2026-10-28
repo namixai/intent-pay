@@ -45,6 +45,11 @@ class Payer(Protocol):
     def refund(self, reference: str, request_id: str) -> PaymentResult: ...
 
 
+def _paid(executions: list[dict[str, Any]]) -> list[str]:
+    """The references of an allowed decision's payments that went through, oldest first."""
+    return [e["reference"] for e in executions if e["operation"] == "pay" and e["ok"] and e["reference"]]
+
+
 class GatewayError(Exception):
     """A request the gateway will not pass to the sandbox (for example, a refund of nothing)."""
 
@@ -104,12 +109,12 @@ class Gateway:
             if decision is None or decision["kind"] != DECISION or decision["decision"] != ALLOW:
                 raise GatewayError(f"receipt #{decision_seq} is not an allowed decision")
             done = state.executions.get(decision_seq, [])
-        payments = [e for e in done if e["operation"] == "pay" and e["ok"] and e["reference"]]
+        payments = _paid(done)
         if not payments:
             raise GatewayError(f"receipt #{decision_seq} has no completed payment to refund")
         if any(e["operation"] == "refund" and e["ok"] for e in done):
             raise GatewayError(f"receipt #{decision_seq} is already refunded")
-        reference = payments[-1]["reference"]
+        reference = payments[-1]
         result = self._call(lambda: self.payer.refund(reference, decision["request_id"]), "refund")
         return self._record(None, decision_seq, result)
 
@@ -127,7 +132,7 @@ class Gateway:
             if decision is None or decision["kind"] != DECISION or decision["decision"] != ALLOW:
                 raise GatewayError(f"request {request_id} has no allowed decision")
             done = state.executions.get(seq, [])
-        cards = [e["reference"] for e in done if e["operation"] == "pay" and e["ok"] and e["reference"]]
+        cards = _paid(done)
         if not cards:
             raise GatewayError(f"request {request_id} has no card")
         money = parse_money(amount, currency)
