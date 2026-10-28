@@ -150,6 +150,10 @@ MUTATIONS = [
     ("vendor charge on a refused request", "src/intent_pay/gateway.py",
      'if decision is None or decision["kind"] != DECISION or decision["decision"] != ALLOW:\n                raise GatewayError(f"request {request_id} has no allowed decision")',
      'if decision is None:\n                raise GatewayError(f"request {request_id} has no allowed decision")'),
+    ("failed reversal reported as reversed", "src/intent_pay/adapters/airwallex.py",
+     "reversed_hold = rev.status < 400", "reversed_hold = True"),
+    ("hand-written answers labelled recorded", "src/intent_pay/agent.py",
+     'if isinstance(cassette, dict) and cassette.get("recorded") is False:', "if False:"),
     ("card and receipt always match", "src/intent_pay/agent.py",
      'compare["match"] = compare.get("expected") is not None and compare["card"] == compare["expected"]', 'compare["match"] = True'),
 ]

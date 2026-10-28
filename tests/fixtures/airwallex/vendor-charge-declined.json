@@ -1,5 +1,6 @@
 {
   "_source": "Written by hand from the Airwallex API reference (read 2026-10-28), NOT recorded from the sandbox: the sandbox key did not log in yet. A run with --sandbox --record replaces this file. Step 3: the vendor charges 470.00 USD to the step 1 card; the card's limits decline it.",
+  "recorded": false,
   "exchanges": [
     {
       "request": {

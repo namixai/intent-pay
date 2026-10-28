@@ -166,6 +166,20 @@ class Scenario:
     def provider_name(self) -> str:
         return PROVIDER_NAMES[self.provider]
 
+    def replay_label(self) -> str:
+        """What the answers are when the run is not live: recorded from the sandbox, or written by
+        hand from the provider's reference (a cassette that says "recorded": false)."""
+        for step in self.steps:
+            if not step.get("replay"):
+                continue
+            try:
+                cassette = json.loads(self.resolve(step["replay"]).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(cassette, dict) and cassette.get("recorded") is False:
+                return f"{self.provider_name} sandbox answers written from its API reference, not recorded"
+        return f"recorded {self.provider_name} sandbox answers"
+
 
 def sandbox_gateway(scenario: Scenario, step: Mapping[str, Any], ledger: Ledger, sandbox: bool,
                     record: pathlib.Path | None = None, env: Mapping[str, str] = os.environ) -> Gateway:
@@ -429,7 +443,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"error": type(exc).__name__, "detail": str(exc)}, indent=2))
         return 2
     mode = {"agent": agent.label,
-            "payments": f"{scenario.provider_name} sandbox" if args.sandbox else "recorded sandbox answers"}
+            "payments": f"{scenario.provider_name} sandbox" if args.sandbox else scenario.replay_label()}
     if args.json:
         print(json.dumps({"scenario": scenario.name, "mode": mode, "run": run, "steps": report,
                           "ledger": {"path": str(ledger.path), "records": count, "chain": "ok"}}, indent=2))

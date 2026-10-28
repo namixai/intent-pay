@@ -61,7 +61,7 @@ class Demo:
         name = self.scenario.provider_name
         return {"scenario": self.scenario.name, "run": self.run, "provider": name,
                 "mode": {"agent": self.agent.label,
-                         "payments": f"{name} sandbox" if self.sandbox else f"recorded {name} sandbox answers"},
+                         "payments": f"{name} sandbox" if self.sandbox else self.scenario.replay_label()},
                 "steps": steps, "ledger": {"path": str(self.ledger.path), "records": records, "chain": chain}}
 
 

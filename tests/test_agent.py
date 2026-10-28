@@ -204,7 +204,7 @@ def test_cli_runs_the_scenario_on_recordings(tmp_path):
     assert out.returncode == 0, out.stdout + out.stderr
     report = json.loads(out.stdout)
     assert len(report["steps"]) == 4 and report["ledger"] == {"path": str(tmp_path / "l.jsonl"), "records": 6, "chain": "ok"}
-    assert report["mode"]["payments"] == "recorded sandbox answers"
+    assert report["mode"]["payments"] == "recorded PayPal sandbox answers"
 
 
 def test_cli_sandbox_without_keys_names_the_missing_variables(tmp_path):

@@ -91,7 +91,8 @@ def test_airwallex_demo_names_its_provider_and_shows_the_vendor_step(tmp_path):
     for number in range(1, 5):
         demo.run_step(number)
     view = demo.view()
-    assert view["provider"] == "Airwallex" and view["mode"]["payments"] == "recorded Airwallex sandbox answers"
+    assert view["provider"] == "Airwallex"
+    assert view["mode"]["payments"] == "Airwallex sandbox answers written from its API reference, not recorded"
     charge = [e for e in view["steps"][2]["events"] if e["kind"] == "vendor_charge"][0]
     assert charge["compare"]["match"] is True
     assert [r.get("operation") for r in view["ledger"]["records"] if r["kind"] == "execution"] == ["pay", "forced_charge"]

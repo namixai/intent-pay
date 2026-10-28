@@ -357,7 +357,8 @@ class AirwallexPayer:
 
     def simulate_charge(self, card_id: str, amount: Decimal, currency: str, mcc: str | None) -> PaymentResult:
         """A vendor charging the card directly, with no intent and no policy. If Airwallex
-        approves it, the hold is reversed at once and the result says the card let it through."""
+        approves it, the hold is reversed at once; the result says the card let it through, and
+        whether the reversal did too."""
         steps: list[dict[str, Any]] = []
         auth = self.client.simulate_authorization(card_id, amount, currency, mcc)
         a = _obj(auth)
@@ -368,9 +369,15 @@ class AirwallexPayer:
             return PaymentResult(PROVIDER, "forced_charge", False, status, None,
                                  f"card {card_id}: the simulation was not accepted: {_error(auth)[1]}", tuple(steps))
         if a.get("process_result") == "APPROVED":
+            reversed_hold = False
             if lifecycle:
                 rev = self.client.simulate_reversal(lifecycle)
-                steps.append(_step("reverse", rev, lifecycle, _sim_status(_obj(rev)) if rev.status < 400 else None))
+                reversed_hold = rev.status < 400
+                steps.append(_step("reverse", rev, lifecycle, _sim_status(_obj(rev)) if reversed_hold else None))
+            if not reversed_hold:
+                return PaymentResult(PROVIDER, "forced_charge", True, "APPROVED_NOT_REVERSED", lifecycle,
+                                     f"card {card_id}: Airwallex approved {amount} {currency}; the hold could not "
+                                     f"be reversed and is still on the card", tuple(steps))
             return PaymentResult(PROVIDER, "forced_charge", True, "APPROVED", lifecycle,
                                  f"card {card_id}: Airwallex approved {amount} {currency}; the hold was reversed", tuple(steps))
         return PaymentResult(PROVIDER, "forced_charge", False, status, lifecycle,

@@ -152,6 +152,14 @@ def test_a_vendor_charge_that_the_card_declines():
     assert not result.ok and result.status == "DECLINED:LIMIT_EXCEEDED" and result.operation == "forced_charge"
 
 
+def test_a_vendor_charge_whose_reversal_fails_says_the_hold_is_still_there():
+    t = Fake(LOGIN, (201, {"process_result": "APPROVED", "card_transaction_lifecycle_id": "lc"}),
+             (400, {"code": "invalid_state", "message": "lifecycle already closed"}))
+    result = payer(t).simulate_charge("card-1", Decimal("470.00"), "USD", "7372")
+    assert result.status == "APPROVED_NOT_REVERSED" and "still on the card" in result.detail
+    assert "was reversed" not in result.detail and result.steps[-1]["status"] == "invalid_state"
+
+
 def test_a_vendor_charge_the_card_lets_through_is_reversed_and_reported():
     t = Fake(LOGIN, (201, {"process_result": "APPROVED", "card_transaction_lifecycle_id": "lc"}), (200, {"process_result": "APPROVED"}))
     result = payer(t).simulate_charge("card-1", Decimal("470.00"), "USD", "7372")
@@ -287,5 +295,5 @@ def test_vendor_step_before_any_payment_says_what_is_missing(tmp_path):
 
 def test_fixtures_say_whether_they_were_recorded():
     for path in FIXTURES.glob("*.json"):
-        source = json.loads(path.read_text())["_source"]
-        assert "recorded" in source, path
+        data = json.loads(path.read_text())
+        assert data.get("recorded") is ("NOT recorded" not in data["_source"]), path
