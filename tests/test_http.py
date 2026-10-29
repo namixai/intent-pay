@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from intent_pay.adapters.http import CassetteMismatch, RecordingTransport, ReplayTransport, Response, redact
+from intent_pay.adapters.http import SECRET_FIELDS, CassetteMismatch, RecordingTransport, ReplayTransport, Response, redact
 
 SECRETS = ["client-secret-x", "A21AAtokenvalue", "4012888888881881", "2030-12", "987", "vault-abc"]
 
@@ -54,11 +54,32 @@ def test_redact_keeps_structure():
     assert redact({"a": [{"number": "1"}, {"ok": 1}], "token": None}) == {"a": [{"number": "REDACTED"}, {"ok": 1}], "token": None}
 
 
+def _secret_values(value):
+    if isinstance(value, dict):
+        for k, v in value.items():
+            if k in SECRET_FIELDS and v not in (None, "", "REDACTED"):
+                yield k
+            yield from _secret_values(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from _secret_values(v)
+
+
 def test_committed_cassettes_hold_no_secret_values():
     import pathlib
     for path in (pathlib.Path(__file__).parent / "fixtures").rglob("*.json"):
         data = json.loads(path.read_text())
         for exchange in data["exchanges"]:
-            assert "Authorization" not in (exchange["request"].get("headers") or {}), path
-            token = (exchange["response"].get("body") or {}).get("access_token")
-            assert token in (None, "REDACTED"), path
+            headers = {k.lower() for k in exchange["request"].get("headers") or {}}
+            assert not headers & {"authorization", "x-api-key", "x-client-id"}, path
+            assert list(_secret_values(exchange)) == [], path
+
+
+def test_recording_drops_airwallex_key_headers_and_card_numbers(tmp_path):
+    inner = lambda *a: Response(201, json.dumps({"token": "t0k", "card": {"card_number": "4242424242424242"}}).encode(), {})
+    t = RecordingTransport(inner, tmp_path / "c.json", source="test")
+    t("POST", "https://api.sandbox.airwallex.com/api/v1/authentication/login",
+      {"x-client-id": "client-id-value", "x-api-key": "api-key-value", "Content-Type": "application/json"}, b"")
+    text = (tmp_path / "c.json").read_text()
+    for value in ("client-id-value", "api-key-value", "t0k", "4242"):
+        assert value not in text

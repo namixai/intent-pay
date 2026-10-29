@@ -1,0 +1,50 @@
+{
+  "_source": "Written by hand from the Airwallex API reference (read 2026-10-28), NOT recorded from the sandbox: the sandbox key did not log in yet. A run with --sandbox --record replaces this file. Step 3: the vendor charges 470.00 USD to the step 1 card; the card's limits decline it.",
+  "recorded": false,
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/authentication/login",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "token": "REDACTED",
+          "expires_at": "2026-10-28T13:00:00+0000"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/simulation/issuing/create",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "card_id": "c0ffee00-0000-4000-8000-000000000001",
+          "card_transaction_id": "tx000000-0000-4000-8000-000000000003",
+          "card_transaction_lifecycle_id": "1f000000-0000-4000-8000-000000000470",
+          "process_result": "DECLINED",
+          "failure_reason": "LIMIT_EXCEEDED",
+          "type": "AUTHORIZATION",
+          "subtype": "AUTHORIZATION",
+          "transaction_amount": 470,
+          "transaction_currency": "USD",
+          "merchant": {
+            "category_code": "7372"
+          }
+        }
+      }
+    }
+  ]
+}

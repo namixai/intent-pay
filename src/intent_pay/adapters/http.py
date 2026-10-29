@@ -22,9 +22,9 @@ from urllib.parse import urlsplit
 REDACTED = "REDACTED"
 SECRET_FIELDS = frozenset({
     "access_token", "refresh_token", "client_secret", "token",
-    "number", "expiry", "security_code", "cvv", "vault_id",
+    "number", "card_number", "expiry", "security_code", "cvv", "vault_id",
 })
-KEPT_HEADERS = frozenset({"content-type", "prefer", "paypal-request-id", "x-client-id"})
+KEPT_HEADERS = frozenset({"content-type", "prefer", "paypal-request-id"})
 
 
 @dataclass(frozen=True)
@@ -99,7 +99,7 @@ class RecordingTransport:
     def __init__(self, inner: Transport, path: str | pathlib.Path, source: str):
         self.inner = inner
         self.path = pathlib.Path(path)
-        self.cassette = {"_source": source, "exchanges": []}
+        self.cassette = {"_source": source, "recorded": True, "exchanges": []}
 
     def __call__(self, method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> Response:
         response = self.inner(method, url, headers, body)

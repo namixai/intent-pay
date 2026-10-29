@@ -84,3 +84,15 @@ def test_reset_starts_a_new_ledger_and_run(server):
     state = json.loads(request(port, "POST", "/api/reset", RUN)[1])
     assert state["run"] != first_run and state["ledger"]["records"] == []
     assert demo.ledger.path != first_path and first_path.exists()
+
+
+def test_airwallex_demo_names_its_provider_and_shows_the_vendor_step(tmp_path):
+    demo = Demo(Scenario.load(ROOT / "scenarios" / "airwallex-demo.json"), ScriptedAgent(), False, tmp_path)
+    for number in range(1, 5):
+        demo.run_step(number)
+    view = demo.view()
+    assert view["provider"] == "Airwallex"
+    assert view["mode"]["payments"] == "Airwallex sandbox answers written from its API reference, not recorded"
+    charge = [e for e in view["steps"][2]["events"] if e["kind"] == "vendor_charge"][0]
+    assert charge["compare"]["match"] is True
+    assert [r.get("operation") for r in view["ledger"]["records"] if r["kind"] == "execution"] == ["pay", "forced_charge"]

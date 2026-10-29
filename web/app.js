@@ -30,16 +30,24 @@ async function call(method, path) {
   return body;
 }
 
+const vendorCharge = (step) => (step.events || []).find((e) => e.kind === "vendor_charge");
+
 // The step's result for the cards: the last proposal decides the colour.
 function stepStatus(step) {
   if (!step.events) return { text: "not run", cls: "" };
+  const charge = vendorCharge(step);
+  if (charge) {
+    const payment = charge.outcome.payment || {};
+    if (charge.compare.card) return { text: `card declined: ${charge.compare.card}`, cls: "refuse" };
+    return { text: `card answered: ${payment.status}`, cls: "warn" };
+  }
   const decisions = step.events.filter((e) => e.kind === "decision");
-  if (decisions.length === 0) return { text: "no proposal", cls: "warn" };
+  if (decisions.length === 0) return { text: step.events.some((e) => e.kind === "error") ? "error" : "no proposal", cls: "warn" };
   const last = decisions[decisions.length - 1];
   const seen = last.agent_sees;
   if (seen.decision !== "allow") return { text: `refused: ${seen.reason}`, cls: "refuse" };
   if (seen.payment && seen.payment.ok) return { text: `paid: ${seen.payment.status}`, cls: "allow" };
-  return { text: `allowed, PayPal: ${seen.payment ? seen.payment.status : "no answer"}`, cls: "warn" };
+  return { text: `allowed, ${state.provider}: ${seen.payment ? seen.payment.status : "no answer"}`, cls: "warn" };
 }
 
 function renderMode() {
@@ -92,13 +100,29 @@ function agentLane(step) {
     if (event.kind === "error") lane.append(h("p", { class: "error" }, event.text));
     if (event.kind === "read_page") lane.append(pageBox(event));
     if (event.kind === "proposal") lane.append(proposalBox(event.input));
+    if (event.kind === "vendor_charge") {
+      lane.append(h("p", { class: "not-called" }, h("strong", null, "Not involved. "),
+        "The agent proposes nothing in this step; the vendor acts on its own."));
+    }
   }
   return lane;
 }
 
-function policyLane(decisions) {
+function policyLane(decisions, charge) {
   const lane = h("section", { class: "lane" },
     h("div", { class: "lane-head" }, h("h2", null, "Policy"), h("span", { class: "who" }, "plain Python, no model")));
+  if (charge) {
+    const c = charge.compare;
+    lane.append(h("p", { class: "not-called" }, h("strong", null, "Not asked. "),
+      "The vendor goes straight to the card."));
+    if (c.receipt) {
+      lane.append(
+        h("p", { class: "detail" }, `Receipt #${c.receipt} already refused this charge when the agent proposed it:`),
+        h("div", { class: "code" }, c.reason),
+        h("p", { class: "detail" }, `On a card, that rule is ${c.expected || "not a card control"}.`));
+    }
+    return lane;
+  }
   if (decisions.length === 0) {
     lane.append(h("p", { class: "not-called" }, "No proposal reached the policy."));
   }
@@ -117,9 +141,28 @@ function policyLane(decisions) {
   return lane;
 }
 
-function paypalLane(decisions) {
+const GOOD = ["CREATED", "COMPLETED", "PENDING", "READY", "ACTIVE", "APPROVED", "CLEARED", "OK"];
+
+function callList(payment) {
+  return h("ul", { class: "calls" }, payment.steps.map((s) => h("li", null,
+    h("div", { class: "call" }, `${s.call}  HTTP ${s.http}`),
+    h("div", null, h("span", { class: `status ${GOOD.includes(s.status) ? "good" : "bad"}` }, s.status || ""), s.id ? `  ${s.id}` : ""),
+    s.debug_id ? h("div", { class: "call" }, `debug_id ${s.debug_id}`) : null)));
+}
+
+function providerLane(decisions, charge) {
   const lane = h("section", { class: "lane" },
-    h("div", { class: "lane-head" }, h("h2", null, "PayPal"), h("span", { class: "who" }, state.mode.payments)));
+    h("div", { class: "lane-head" }, h("h2", null, state.provider), h("span", { class: "who" }, state.mode.payments)));
+  if (charge) {
+    const payment = charge.outcome.payment;
+    lane.append(callList(payment), h("p", { class: "detail" }, payment.detail));
+    const c = charge.compare;
+    if (c.receipt) {
+      lane.append(h("div", { class: `verdict ${c.match ? "allow" : "refuse"}` }, c.match ? "SAME RULE" : "DIFFERENT"),
+        h("p", { class: "detail" }, `The card said ${c.card || payment.status}; receipt #${c.receipt} said ${c.reason}.`));
+    }
+    return lane;
+  }
   if (decisions.length === 0) {
     lane.append(h("p", { class: "not-called" }, "Nothing to send."));
   }
@@ -130,14 +173,7 @@ function paypalLane(decisions) {
         "The policy refused, so no request left this process."));
       continue;
     }
-    lane.append(h("ul", { class: "calls" }, payment.steps.map((s) => {
-      const good = ["CREATED", "COMPLETED", "PENDING"].includes(s.status);
-      return h("li", null,
-        h("div", { class: "call" }, `${s.call}  HTTP ${s.http}`),
-        h("div", null, h("span", { class: `status ${good ? "good" : "bad"}` }, s.status || ""), s.id ? `  ${s.id}` : ""),
-        s.debug_id ? h("div", { class: "call" }, `debug_id ${s.debug_id}`) : null);
-    })));
-    lane.append(h("p", { class: "detail" }, payment.detail));
+    lane.append(callList(payment), h("p", { class: "detail" }, payment.detail));
   }
   return lane;
 }
@@ -155,7 +191,7 @@ function renderDetail() {
   });
   main.replaceChildren(
     h("div", { class: "actions" }, button, h("span", { class: "who" }, step.title)),
-    agentLane(step), policyLane(decisions), paypalLane(decisions));
+    agentLane(step), policyLane(decisions, vendorCharge(step)), providerLane(decisions, vendorCharge(step)));
 }
 
 function resultText(record) {

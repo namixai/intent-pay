@@ -12,7 +12,7 @@ The policy design is taken from Usenami Signer, our Rust signing service for tra
 
 ## Status
 
-Built so far: the intent, the policy engine, the receipt ledger, the PayPal sandbox adapter, the agent and a demo page, with tests. The adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Claude agent mode is tested against a stand-in client, not yet against the API. Next: the Airwallex adapter.
+Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter is written from Airwallex's API reference and tested on answers we wrote by hand from the same pages. It has not run against the Airwallex sandbox yet. The Claude agent mode is tested against a stand-in client, not yet against the API.
 
 ## Run the demo
 
@@ -33,6 +33,12 @@ On Windows, activate with `.venv\Scripts\activate` instead of the `source` line.
 4. The policy allows a second 49.00 USD payment, and PayPal declines the card. The ledger keeps the attempt, and it still counts against the day.
 
 Each step shows what the agent read and proposed, what the policy decided and why, and what PayPal answered. The ledger below it is the hash chain from [Receipts](#receipts). `python -m intent_pay.agent` prints the same four steps in a terminal. The scenario is [scenarios/paypal-demo.json](scenarios/paypal-demo.json).
+
+The Airwallex demo is a second scenario on the same page, described under [Airwallex sandbox](#airwallex-sandbox):
+
+```bash
+python -m intent_pay.web --scenario scenarios/airwallex-demo.json
+```
 
 By default the agent follows the tool calls written in the scenario, and PayPal's answers come from the recordings in `tests/fixtures/paypal/`. Two switches make it live:
 
@@ -119,6 +125,49 @@ PAYPAL_CARD_NAME=CCREJECT-REFUSED python -m intent_pay pay --policy policies/pay
 ```
 
 The cassettes in `tests/fixtures/paypal/` were recorded from the PayPal sandbox on 2026-10-27 with `--record`. Each file's `_source` field says what was sent.
+
+## Airwallex sandbox
+
+With Airwallex, every allowed payment gets its own virtual card, and the card carries the policy with it. The gateway issues it only after the engine says yes, with these authorization controls from [policies/airwallex-sandbox.toml](policies/airwallex-sandbox.toml) and the allowed intent:
+
+| Card control | Set to |
+|---|---|
+| `allowed_currencies` | the intent's currency only |
+| `allowed_merchant_categories` | the policy's `merchant_categories` |
+| `PER_TRANSACTION` limit | the policy's `per_payment` |
+| `DAILY` limit | the policy's `daily` |
+| `ALL_TIME` limit | the amount the engine allowed |
+
+So every rule a card can hold is checked twice: by our engine before the card exists, and by Airwallex each time the card is charged. In the sandbox nobody else charges the card, so the gateway plays the vendor with Airwallex's issuing simulation: it authorizes the amount on the new card, then captures it.
+
+The four steps of [scenarios/airwallex-demo.json](scenarios/airwallex-demo.json):
+
+1. The agent proposes the monthly 49.00 USD. The policy allows it, the card is issued, and the simulated authorization and capture go through.
+2. The vendor's page pushes the annual plan and the agent proposes 470.00 USD. The policy refuses it (`per_payment_limit_exceeded`), and no card is issued or charged.
+3. No agent in this step. The vendor charges 470.00 USD straight to the card from step 1, as a vendor that kept the card could, and our policy is not asked. The card's own limits decline it, and the page sets Airwallex's decline reason beside the receipt from step 2.
+4. The agent retries the first payment with the same request ID. The policy refuses it (`duplicate_request_id`).
+
+Airwallex names its decline in the transaction's `failure_reason`. For the rules a card can check, ours and theirs line up like this:
+
+| Our receipt | Airwallex `failure_reason` |
+|---|---|
+| `per_payment_limit_exceeded`, `daily_limit_exceeded` | `LIMIT_EXCEEDED` |
+| `currency_not_allowed` | `CURRENCY_NOT_ALLOWED` |
+| `merchant_category_not_allowed` | `MERCHANT_CATEGORY_NOT_ALLOWED` |
+
+Before any card is issued, the cash reserve rule (`min_balance`) reads the wallet's available balance from Airwallex's balances API. Refunds are not built for Airwallex yet.
+
+The recordings in `tests/fixtures/airwallex/` were written by hand from the API reference, and each file's `_source` says so. Our sandbox key was refused at login on 2026-10-28, so nothing here has been recorded from the Airwallex sandbox yet. To run it against your own sandbox:
+
+1. At sandbox.airwallex.com, Settings > Developer > API keys, create a scoped key with read and write access to Issuing, and copy that key's Client ID and the key itself. The key is shown only once.
+2. Put them into `.env` as `AIRWALLEX_CLIENT_ID` and `AIRWALLEX_API_KEY`. The sandbox wallet needs at least 1,049.00 USD: the policy's reserve of 1,000.00 plus the 49.00 payment.
+3. Run the scenario, saving what the sandbox answers:
+
+```bash
+python -m intent_pay.agent --scenario scenarios/airwallex-demo.json --sandbox --record state/cassettes/airwallex
+```
+
+Without `AIRWALLEX_CARDHOLDER_ID`, the gateway looks for a ready sandbox cardholder under its demo e-mail. If there is none, it creates one and passes the sandbox review through Airwallex's simulation endpoint. Recordings keep no key, token or card number.
 
 ## Run the tests
 

@@ -12,8 +12,8 @@ import pytest
 
 from intent_pay.adapters.http import ReplayTransport
 from intent_pay.adapters.paypal import CardSource, PayPalClient, PayPalConfig, PayPalPayer
-from intent_pay.agent import (DEFAULT_MODEL, FALLBACK_BETA, MAX_TURNS, TOOLS, AgentError, ClaudeAgent, Scenario,
-                              ScriptedAgent, StepTools, fresh_run, make_agent, run_step)
+from intent_pay.agent import (DEFAULT_MODEL, FALLBACK_BETA, MAX_TURNS, AgentError, ClaudeAgent, Scenario, ScriptedAgent,
+                              StepTools, fresh_run, make_agent, run_step, system_for, tools_for)
 from intent_pay.gateway import Gateway
 from intent_pay.intent import Intent
 from intent_pay.ledger import Ledger
@@ -35,7 +35,7 @@ def scenario():
 
 def watched_gateway(transports):
     """A gateway on the step's cassette with real-looking keys, keeping each transport."""
-    def build(scenario, step, ledger, sandbox):
+    def build(scenario, step, ledger, sandbox, record=None):
         transport = ReplayTransport(scenario.resolve(step["replay"]))
         transports.append(transport)
         config = PayPalConfig(client_id="id", client_secret=SECRET,
@@ -156,7 +156,8 @@ def test_claude_agent_loop_runs_tools_through_the_gateway(scenario, tmp_path):
     assert decisions(events)[0]["payment"]["status"] == "COMPLETED"
 
     first = client.calls[0]
-    assert first["model"] == DEFAULT_MODEL and first["tools"] == TOOLS and "tool_choice" not in first
+    assert first["model"] == DEFAULT_MODEL and first["tools"] == tools_for("paypal") and "tool_choice" not in first
+    assert first["system"] == system_for("paypal") and "what PayPal said" in first["system"]
     assert first["fallbacks"] == "default" and first["betas"] == [FALLBACK_BETA]
     result = client.calls[2]["messages"][-1]["content"][0]
     assert result["tool_use_id"] == "b" and result["is_error"] is False
@@ -203,7 +204,7 @@ def test_cli_runs_the_scenario_on_recordings(tmp_path):
     assert out.returncode == 0, out.stdout + out.stderr
     report = json.loads(out.stdout)
     assert len(report["steps"]) == 4 and report["ledger"] == {"path": str(tmp_path / "l.jsonl"), "records": 6, "chain": "ok"}
-    assert report["mode"]["payments"] == "recorded sandbox answers"
+    assert report["mode"]["payments"] == "recorded PayPal sandbox answers"
 
 
 def test_cli_sandbox_without_keys_names_the_missing_variables(tmp_path):
@@ -211,3 +212,68 @@ def test_cli_sandbox_without_keys_names_the_missing_variables(tmp_path):
                           "--ledger", str(tmp_path / "l.jsonl"), "--sandbox", "--step", "1"],
                          cwd=ROOT, capture_output=True, text=True, env=CLEAN_ENV)
     assert out.returncode == 2 and "PAYPAL_CLIENT_ID" in json.loads(out.stdout)["detail"]
+
+
+def test_cli_runs_the_airwallex_scenario_on_recordings(tmp_path):
+    out = subprocess.run([sys.executable, "-m", "intent_pay.agent", "--scenario", "scenarios/airwallex-demo.json",
+                          "--env", str(tmp_path / "none"), "--ledger", str(tmp_path / "l.jsonl"), "--run", "t"],
+                         cwd=ROOT, capture_output=True, text=True, env=CLEAN_ENV)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "DECLINED:LIMIT_EXCEEDED" in out.stdout and "same rule" in out.stdout
+    assert "airwallex not called" in out.stdout and "5 records, chain ok" in out.stdout
+
+
+def test_cli_labels_the_answers_of_the_chosen_step_only(tmp_path):
+    out = subprocess.run([sys.executable, "-m", "intent_pay.agent", "--scenario", "scenarios/airwallex-demo.json",
+                          "--env", str(tmp_path / "none"), "--ledger", str(tmp_path / "l.jsonl"), "--run", "t",
+                          "--step", "2", "--json"],
+                         cwd=ROOT, capture_output=True, text=True, env=CLEAN_ENV)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert json.loads(out.stdout)["mode"]["payments"] == "no Airwallex sandbox call"
+
+
+def test_cli_airwallex_sandbox_without_keys_names_the_missing_variables(tmp_path):
+    out = subprocess.run([sys.executable, "-m", "intent_pay.agent", "--scenario", "scenarios/airwallex-demo.json",
+                          "--env", str(tmp_path / "none"), "--ledger", str(tmp_path / "l.jsonl"), "--sandbox", "--step", "1"],
+                         cwd=ROOT, capture_output=True, text=True, env=CLEAN_ENV)
+    assert out.returncode == 2 and "AIRWALLEX_CLIENT_ID" in json.loads(out.stdout)["detail"]
+
+
+def test_cli_record_needs_the_sandbox(tmp_path):
+    out = subprocess.run([sys.executable, "-m", "intent_pay.agent", "--env", str(tmp_path / "none"),
+                          "--ledger", str(tmp_path / "l.jsonl"), "--record", str(tmp_path / "rec")],
+                         cwd=ROOT, capture_output=True, text=True, env=CLEAN_ENV)
+    assert out.returncode == 2 and "--sandbox" in json.loads(out.stdout)["detail"]
+
+
+def test_record_saves_each_live_step_without_keys(scenario, tmp_path):
+    from intent_pay.adapters.http import Response
+    from intent_pay.agent import sandbox_gateway
+
+    def live(method, url, headers, body):
+        if url.endswith("/v1/oauth2/token"):
+            return Response(200, json.dumps({"access_token": "A21AA-live", "expires_in": 3600}).encode(), {})
+        if url.endswith("/capture"):
+            return Response(201, json.dumps({"id": "O1", "status": "COMPLETED", "purchase_units": [
+                {"payments": {"captures": [{"id": "C1", "status": "COMPLETED"}]}}]}).encode(), {})
+        return Response(201, json.dumps({"id": "O1", "status": "CREATED"}).encode(), {})
+
+    env = {"PAYPAL_CLIENT_ID": "id", "PAYPAL_CLIENT_SECRET": SECRET, "PAYPAL_CARD_NUMBER": CARD_NUMBER,
+           "PAYPAL_CARD_EXPIRY": "2030-12"}
+    import intent_pay.agent as agent_module
+    real = agent_module.UrllibTransport
+    agent_module.UrllibTransport = lambda: live
+    try:
+        def build(scenario, step, ledger, sandbox, record=None):
+            return sandbox_gateway(scenario, step, ledger, sandbox, record=record, env=env)
+        ledger = Ledger(tmp_path / "l.jsonl")
+        for i in range(2):
+            run_step(scenario, i, ScriptedAgent(), ledger, "t", sandbox=True, gateway_for=build, record=tmp_path / "rec")
+    finally:
+        agent_module.UrllibTransport = real
+    saved = sorted(p.name for p in (tmp_path / "rec").iterdir())
+    assert saved == ["step-1.json"]  # step 2 was refused and made no call
+    text = (tmp_path / "rec" / "step-1.json").read_text()
+    assert SECRET not in text and CARD_NUMBER not in text and "A21AA-live" not in text
+    assert "recorded from the PayPal sandbox" in json.loads(text)["_source"]
+    assert json.loads(text)["recorded"] is True

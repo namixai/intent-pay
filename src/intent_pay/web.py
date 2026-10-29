@@ -1,8 +1,9 @@
-"""A local page for the demo: one button per step, and what the agent, the policy and PayPal
-each did.
+"""A local page for the demo: one button per step, and what the agent, the policy and the
+payment provider each did.
 
-    python -m intent_pay.web                # http://127.0.0.1:8765, recorded sandbox answers
+    python -m intent_pay.web                # http://127.0.0.1:8765, recorded PayPal sandbox answers
     python -m intent_pay.web --sandbox      # PayPal sandbox, keys from .env
+    python -m intent_pay.web --scenario scenarios/airwallex-demo.json   # the Airwallex demo
 
 It listens on 127.0.0.1 only. A step runs on POST with an `X-Intent-Pay` header, which a page
 from another site cannot send here without a CORS answer this server never gives, and a request
@@ -20,8 +21,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
-from intent_pay.adapters.paypal import ConfigError
-from intent_pay.agent import AgentError, Scenario, fresh_run, make_agent, run_step
+from intent_pay.agent import CONFIG_ERRORS, AgentError, Scenario, fresh_run, make_agent, run_step
 from intent_pay.ledger import LedgerError
 
 WEB = pathlib.Path(__file__).resolve().parents[2] / "web"
@@ -58,9 +58,10 @@ class Demo:
             step = self.scenario.step(i, self.run)
             steps.append({"number": i + 1, "title": step["title"], "task": step["task"],
                           "events": self.results.get(i)})
-        return {"scenario": self.scenario.name, "run": self.run,
+        name = self.scenario.provider_name
+        return {"scenario": self.scenario.name, "run": self.run, "provider": name,
                 "mode": {"agent": self.agent.label,
-                         "payments": "PayPal sandbox" if self.sandbox else "recorded PayPal sandbox answers"},
+                         "payments": f"{name} sandbox" if self.sandbox else self.scenario.replay_label()},
                 "steps": steps, "ledger": {"path": str(self.ledger.path), "records": records, "chain": chain}}
 
 
@@ -113,7 +114,7 @@ def handler_for(demo: Demo) -> type[BaseHTTPRequestHandler]:
                     demo.run_step(number)
                 else:
                     return self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
-            except (AgentError, ConfigError) as exc:
+            except (AgentError, *CONFIG_ERRORS) as exc:
                 return self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             self._json(HTTPStatus.OK, demo.view())
 
@@ -125,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(prog="python -m intent_pay.web", description=__doc__.split("\n\n")[0])
     parser.add_argument("--scenario", default="scenarios/paypal-demo.json")
-    parser.add_argument("--sandbox", action="store_true", help="pay in the PayPal sandbox with keys from .env")
+    parser.add_argument("--sandbox", action="store_true", help="pay in the scenario's sandbox with keys from .env")
     parser.add_argument("--env", default=".env", help="file of KEY=VALUE lines to read first (default .env)")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--state", default="state/runs", help="where each run's ledger goes (default state/runs)")
@@ -138,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     server = HTTPServer(("127.0.0.1", args.port), handler_for(demo))
     print(f"intent-pay demo on http://127.0.0.1:{args.port} ({demo.agent.label}; "
-          f"{'PayPal sandbox' if args.sandbox else 'recorded sandbox answers'}). Ctrl+C stops it.")
+          f"{demo.view()['mode']['payments']}). Ctrl+C stops it.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

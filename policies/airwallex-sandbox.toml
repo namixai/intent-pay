@@ -1,0 +1,11 @@
+# For a run against your own Airwallex sandbox. Every number here is an example.
+# The gateway gives each allowed payment its own virtual card, and the card's controls repeat
+# these rules: USD only, these merchant categories only, 60.00 per transaction, 100.00 a day,
+# and never more in all than the amount the policy allowed.
+merchant_categories = ["5734", "7372"]
+
+[currencies.USD]
+per_payment = "60.00"
+daily = "100.00"
+# The wallet's available USD balance (Airwallex balances API) must stay at or above this.
+min_balance = "1000.00"
