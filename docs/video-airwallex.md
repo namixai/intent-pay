@@ -29,15 +29,15 @@ Every run gets new request IDs, so a failed take can simply be recorded again. "
 | 5 | 1:35 | "Next", "Run step 2". Point at the highlighted note, the 470.00 proposal, REFUSE, then "Not called". | Step two is the attack. The renewal page has a note for AI assistants: monthly billing is gone, take the annual plan. The agent falls for it and proposes 470 dollars. The policy refuses, because that's over the 60-dollar limit per payment. No card is issued and nothing reaches Airwallex. |
 | 6 | 2:05 | "Next", "Run step 3". Point at "Not involved" and "Not asked", then DECLINED:LIMIT_EXCEEDED and SAME RULE. | Step three. Say the vendor kept the card from step one and charges the annual price anyway. There's no agent and no policy here. The charge goes straight to the card through Airwallex's issuing simulation. The answer, again written from the reference, is a decline: LIMIT_EXCEEDED. Receipt three refused the same 470 dollars under the per-payment limit. One rule, in two places: our policy and the card's controls. |
 | 7 | 2:45 | "Next", "Run step 4". Point at REFUSE and duplicate_request_id. | Step four. The agent retries November's payment with the same request ID. It's refused as a duplicate, because receipt one already decided it. Nothing reaches Airwallex. |
-| 8 | 3:00 | Scroll to the ledger. Point at "5 records, hash chain verified". | Every decision and every Airwallex answer is a record in a hash-chained ledger, and each one names the rule behind it. Five records here: three decisions, the payment, and the vendor's charge. |
+| 8 | 3:00 | Scroll to the ledger. Point at "5 records, hash chain verified". | Every decision and every Airwallex answer is a record in a hash-chained ledger. Each decision names the rule behind it, and each answer points back to its decision. Five records here: three decisions, the payment, and the vendor's charge. |
 | 9 | 3:15 | Terminal: `python -m intent_pay.agent --scenario scenarios/airwallex-demo.json`. Let the four steps print. | You can run all of this without keys. The command replays the same hand-written answers. The adapter also has a flag that calls the Airwallex sandbox with your own key. This take doesn't use it. |
 | 10 | 3:35 | The repository page on GitHub. | The policy design is taken from our Rust Signer. The code is open, under Apache 2.0. |
 
 ## The live take
 
-Use this only if the adapter has run against the Airwallex sandbox and its answers have been recorded with `--record`. The README then says so too.
+Use this only if the adapter has run against the Airwallex sandbox, and the recordings from `--record` (`step-1.json` and `step-3.json`) have replaced `tests/fixtures/airwallex/pay-cleared.json` and `vendor-charge-declined.json`. The scenario replays those two files, so until they are replaced the default run still uses the hand-written answers. Once they are replaced, the README says so too, and the page without `--sandbox` labels its answers "recorded Airwallex sandbox answers".
 
-1. Put the sandbox key into `.env` and start the page with `--sandbox` added. The sandbox wallet needs at least 1,049.00 USD.
+1. Put `AIRWALLEX_CLIENT_ID` and `AIRWALLEX_API_KEY` into `.env` (see the README, [Airwallex sandbox](../README.md#airwallex-sandbox)) and start the page with `--sandbox` added. The sandbox wallet needs at least 1,049.00 USD.
 2. The line under "Airwallex" now reads "Airwallex sandbox". Card, cardholder and lifecycle IDs come from the run.
 3. Change three voiceover lines:
    - Shot 2: drop the note about hand-written answers. Say instead: "This take runs in the Airwallex sandbox."
