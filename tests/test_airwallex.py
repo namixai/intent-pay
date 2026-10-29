@@ -1,8 +1,10 @@
 """The Airwallex adapter on hand-built answers. The cassettes in tests/fixtures/airwallex/ follow
 the API reference; each says in `_source` whether it was recorded from the sandbox."""
 
+import http.client
 import json
 import pathlib
+import urllib.error
 from decimal import Decimal
 
 import pytest
@@ -175,12 +177,14 @@ def test_a_reversal_airwallex_declines_is_not_counted_as_done():
     assert result.steps[-1]["status"] == "DECLINED:INTERNAL_ERROR"
 
 
-def test_a_reversal_with_no_answer_still_returns_what_the_card_did():
-    t = Fake(LOGIN, APPROVED_AUTH, ConnectionResetError("peer closed"))
+@pytest.mark.parametrize("failure", [ConnectionResetError("peer closed"), urllib.error.URLError("timed out"),
+                                     http.client.IncompleteRead(b"")])
+def test_a_reversal_with_no_answer_still_returns_what_the_card_did(failure):
+    t = Fake(LOGIN, APPROVED_AUTH, failure)
     result = payer(t).simulate_charge("card-1", Decimal("470.00"), "USD", "7372")
     # The approved authorization and its lifecycle reach the ledger, not a bare ERROR.
     assert result.ok and result.status == "APPROVED_REVERSAL_UNCONFIRMED" and result.reference == "lc"
-    assert "no answer: ConnectionResetError" in result.detail
+    assert f"no answer: {type(failure).__name__}" in result.detail
     assert [s["call"] for s in result.steps] == ["authorize"]
 
 
@@ -255,6 +259,21 @@ def test_force_charge_needs_an_allowed_payment_with_a_card(tmp_path):
     assert outcome.payment.status == "DECLINED:LIMIT_EXCEEDED"
     assert outcome.execution.decision_seq == 1 and outcome.execution.operation == "forced_charge"
     assert ledger.verify() == 3
+
+
+def test_a_recording_without_the_reversal_is_an_error_not_an_answer(tmp_path):
+    # The card approves the vendor's charge and the recording ends there: no reversal exchange.
+    cassette = json.loads((FIXTURES / "vendor-charge-declined.json").read_text())
+    auth = cassette["exchanges"][-1]
+    assert auth["request"]["path"] == "/api/v1/simulation/issuing/create"
+    auth["response"]["body"] = {**auth["response"]["body"], "process_result": "APPROVED", "failure_reason": None}
+    (tmp_path / "no-reversal.json").write_text(json.dumps(cassette))
+    ledger = Ledger(tmp_path / "l.jsonl")
+    gateway_on(FIXTURES / "pay-cleared.json", ledger).submit({**MONTHLY, "request_id": "acme-nov-t"})
+    outcome = gateway_on(tmp_path / "no-reversal.json", ledger).force_charge("acme-nov-t", "470.00", "USD", "7372")
+    # A replay that runs out is a broken recording, not Airwallex's answer: ERROR, no reference.
+    assert outcome.payment.status == "ERROR" and outcome.payment.reference is None
+    assert "CassetteMismatch" in outcome.payment.detail
 
 
 def test_force_charge_never_touches_a_refused_request(tmp_path):

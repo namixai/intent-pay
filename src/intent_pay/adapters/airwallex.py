@@ -21,6 +21,7 @@ configuration is read, and the simulation endpoints exist only in the sandbox.
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import threading
@@ -75,6 +76,11 @@ class ConfigError(ValueError):
 
 class AirwallexError(RuntimeError):
     pass
+
+
+# A call that got no answer from Airwallex: the network, a cut-off HTTP reply, or a failed login.
+# A recording that has no exchange for the call (CassetteMismatch) is not one of these.
+NO_ANSWER = (OSError, http.client.HTTPException, AirwallexError)
 
 
 @dataclass(frozen=True)
@@ -373,7 +379,7 @@ class AirwallexPayer:
             if lifecycle:
                 try:
                     rev = self.client.simulate_reversal(lifecycle)
-                except Exception as exc:  # no answer: the hold's state is not known
+                except NO_ANSWER as exc:  # the hold's state is not known
                     why = f"no answer: {type(exc).__name__}: {exc}"
                 else:
                     r = _obj(rev)
