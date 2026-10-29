@@ -28,7 +28,8 @@ RECEIPT = Receipt(decision="allow", reason="ok", detail="", request_id="acme-nov
 
 
 class Fake:
-    """A transport that answers from a list of (status, body) in order and keeps every call."""
+    """A transport that answers from a list of (status, body) in order and keeps every call. An
+    exception in the list is raised instead, as a dropped connection would be."""
 
     def __init__(self, *answers):
         self.answers = list(answers)
@@ -37,7 +38,10 @@ class Fake:
     def __call__(self, method, url, headers, body):
         self.calls.append({"method": method, "url": url, "headers": dict(headers),
                            "body": json.loads(body) if body else None})
-        status, payload = self.answers.pop(0)
+        answer = self.answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        status, payload = answer
         return Response(status, json.dumps(payload).encode(), {})
 
     def paths(self):
@@ -152,16 +156,36 @@ def test_a_vendor_charge_that_the_card_declines():
     assert not result.ok and result.status == "DECLINED:LIMIT_EXCEEDED" and result.operation == "forced_charge"
 
 
-def test_a_vendor_charge_whose_reversal_fails_says_the_hold_is_still_there():
-    t = Fake(LOGIN, (201, {"process_result": "APPROVED", "card_transaction_lifecycle_id": "lc"}),
-             (400, {"code": "invalid_state", "message": "lifecycle already closed"}))
+APPROVED_AUTH = (201, {"process_result": "APPROVED", "card_transaction_lifecycle_id": "lc"})
+
+
+def test_a_vendor_charge_whose_reversal_fails_does_not_claim_it_was_reversed():
+    t = Fake(LOGIN, APPROVED_AUTH, (400, {"code": "invalid_state", "message": "lifecycle already closed"}))
     result = payer(t).simulate_charge("card-1", Decimal("470.00"), "USD", "7372")
-    assert result.status == "APPROVED_NOT_REVERSED" and "still on the card" in result.detail
-    assert "was reversed" not in result.detail and result.steps[-1]["status"] == "invalid_state"
+    assert result.status == "APPROVED_REVERSAL_UNCONFIRMED" and "(invalid_state)" in result.detail
+    assert "may still be on the card" in result.detail and "was reversed" not in result.detail
+    assert result.steps[-1]["status"] == "invalid_state"
+
+
+def test_a_reversal_airwallex_declines_is_not_counted_as_done():
+    # The reverse endpoint answers 200 with process_result DECLINED when it does not reverse.
+    t = Fake(LOGIN, APPROVED_AUTH, (200, {"process_result": "DECLINED", "failure_reason": "INTERNAL_ERROR"}))
+    result = payer(t).simulate_charge("card-1", Decimal("470.00"), "USD", "7372")
+    assert result.status == "APPROVED_REVERSAL_UNCONFIRMED" and "(DECLINED:INTERNAL_ERROR)" in result.detail
+    assert result.steps[-1]["status"] == "DECLINED:INTERNAL_ERROR"
+
+
+def test_a_reversal_with_no_answer_still_returns_what_the_card_did():
+    t = Fake(LOGIN, APPROVED_AUTH, ConnectionResetError("peer closed"))
+    result = payer(t).simulate_charge("card-1", Decimal("470.00"), "USD", "7372")
+    # The approved authorization and its lifecycle reach the ledger, not a bare ERROR.
+    assert result.ok and result.status == "APPROVED_REVERSAL_UNCONFIRMED" and result.reference == "lc"
+    assert "no answer: ConnectionResetError" in result.detail
+    assert [s["call"] for s in result.steps] == ["authorize"]
 
 
 def test_a_vendor_charge_the_card_lets_through_is_reversed_and_reported():
-    t = Fake(LOGIN, (201, {"process_result": "APPROVED", "card_transaction_lifecycle_id": "lc"}), (200, {"process_result": "APPROVED"}))
+    t = Fake(LOGIN, APPROVED_AUTH, (200, {"process_result": "APPROVED"}))
     result = payer(t).simulate_charge("card-1", Decimal("470.00"), "USD", "7372")
     assert result.ok and result.status == "APPROVED" and "reversed" in result.detail
     assert t.paths()[-1] == "/api/v1/simulation/issuing/card_transaction_lifecycles/lc/reverse"
@@ -294,6 +318,21 @@ def test_vendor_step_before_any_payment_says_what_is_missing(tmp_path):
 
 
 def test_fixtures_say_whether_they_were_recorded():
+    # A cassette from --record carries "recorded": true, a hand-written one "recorded": false.
     for path in FIXTURES.glob("*.json"):
         data = json.loads(path.read_text())
         assert data.get("recorded") is ("NOT recorded" not in data["_source"]), path
+
+
+def test_the_label_covers_only_the_steps_that_run(tmp_path):
+    (tmp_path / "live.json").write_text(json.dumps({"_source": "recorded", "recorded": True, "exchanges": []}))
+    (tmp_path / "hand.json").write_text(json.dumps({"_source": "NOT recorded", "recorded": False, "exchanges": []}))
+    steps = [{"title": "a", "task": "t", "script": [], "replay": "live.json"},
+             {"title": "b", "task": "t", "script": []},
+             {"title": "c", "task": "t", "script": [], "replay": "hand.json"}]
+    (tmp_path / "s.json").write_text(json.dumps({"name": "s", "policy": "p.toml", "provider": "airwallex", "steps": steps}))
+    scenario = Scenario.load(tmp_path / "s.json")
+    assert scenario.replay_label([0]) == "recorded Airwallex sandbox answers"
+    assert scenario.replay_label([1]) == "no Airwallex sandbox call"
+    assert scenario.replay_label([2]) == scenario.replay_label() == \
+        "Airwallex sandbox answers written from its API reference, not recorded"

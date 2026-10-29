@@ -31,7 +31,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from intent_pay.adapters import airwallex, paypal
 from intent_pay.adapters.http import RecordingTransport, ReplayTransport, UrllibTransport
@@ -166,14 +166,17 @@ class Scenario:
     def provider_name(self) -> str:
         return PROVIDER_NAMES[self.provider]
 
-    def replay_label(self) -> str:
-        """What the answers are when the run is not live: recorded from the sandbox, or written by
-        hand from the provider's reference (a cassette that says "recorded": false)."""
-        for step in self.steps:
-            if not step.get("replay"):
-                continue
+    def replay_label(self, indexes: Iterable[int] | None = None) -> str:
+        """What the answers are when the run is not live, for the steps that run (all of them by
+        default): recorded from the sandbox, or written by hand from the provider's reference (a
+        cassette that says "recorded": false). A step with no recording makes no sandbox call."""
+        chosen = [self.steps[i] for i in (range(len(self.steps)) if indexes is None else indexes)]
+        replays = [step["replay"] for step in chosen if step.get("replay")]
+        if not replays:
+            return f"no {self.provider_name} sandbox call"
+        for replay in replays:
             try:
-                cassette = json.loads(self.resolve(step["replay"]).read_text(encoding="utf-8"))
+                cassette = json.loads(self.resolve(replay).read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 continue
             if isinstance(cassette, dict) and cassette.get("recorded") is False:
@@ -443,7 +446,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"error": type(exc).__name__, "detail": str(exc)}, indent=2))
         return 2
     mode = {"agent": agent.label,
-            "payments": f"{scenario.provider_name} sandbox" if args.sandbox else scenario.replay_label()}
+            "payments": f"{scenario.provider_name} sandbox" if args.sandbox else scenario.replay_label(indexes)}
     if args.json:
         print(json.dumps({"scenario": scenario.name, "mode": mode, "run": run, "steps": report,
                           "ledger": {"path": str(ledger.path), "records": count, "chain": "ok"}}, indent=2))

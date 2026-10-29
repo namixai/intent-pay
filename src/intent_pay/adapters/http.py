@@ -99,7 +99,7 @@ class RecordingTransport:
     def __init__(self, inner: Transport, path: str | pathlib.Path, source: str):
         self.inner = inner
         self.path = pathlib.Path(path)
-        self.cassette = {"_source": source, "exchanges": []}
+        self.cassette = {"_source": source, "recorded": True, "exchanges": []}
 
     def __call__(self, method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> Response:
         response = self.inner(method, url, headers, body)

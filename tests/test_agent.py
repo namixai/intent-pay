@@ -223,6 +223,15 @@ def test_cli_runs_the_airwallex_scenario_on_recordings(tmp_path):
     assert "airwallex not called" in out.stdout and "5 records, chain ok" in out.stdout
 
 
+def test_cli_labels_the_answers_of_the_chosen_step_only(tmp_path):
+    out = subprocess.run([sys.executable, "-m", "intent_pay.agent", "--scenario", "scenarios/airwallex-demo.json",
+                          "--env", str(tmp_path / "none"), "--ledger", str(tmp_path / "l.jsonl"), "--run", "t",
+                          "--step", "2", "--json"],
+                         cwd=ROOT, capture_output=True, text=True, env=CLEAN_ENV)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert json.loads(out.stdout)["mode"]["payments"] == "no Airwallex sandbox call"
+
+
 def test_cli_airwallex_sandbox_without_keys_names_the_missing_variables(tmp_path):
     out = subprocess.run([sys.executable, "-m", "intent_pay.agent", "--scenario", "scenarios/airwallex-demo.json",
                           "--env", str(tmp_path / "none"), "--ledger", str(tmp_path / "l.jsonl"), "--sandbox", "--step", "1"],
@@ -267,3 +276,4 @@ def test_record_saves_each_live_step_without_keys(scenario, tmp_path):
     text = (tmp_path / "rec" / "step-1.json").read_text()
     assert SECRET not in text and CARD_NUMBER not in text and "A21AA-live" not in text
     assert "recorded from the PayPal sandbox" in json.loads(text)["_source"]
+    assert json.loads(text)["recorded"] is True
