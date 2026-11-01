@@ -16,7 +16,7 @@ Built so far: the intent, the policy engine, the receipt ledger, the PayPal and 
 
 ## Run the demo
 
-Python 3.11 or newer. No keys and no network:
+Python 3.11 or newer. No keys. The install step downloads the build tool; after that the demo needs no network:
 
 ```bash
 python -m venv .venv
@@ -138,13 +138,13 @@ With Airwallex, every allowed payment gets its own virtual card, and the card ca
 | `DAILY` limit | the policy's `daily` |
 | `ALL_TIME` limit | the amount the engine allowed |
 
-So every rule a card can hold is checked twice: by our engine before the card exists, and by Airwallex each time the card is charged. In the sandbox nobody else charges the card, so the gateway plays the vendor with Airwallex's issuing simulation: it authorizes the amount on the new card, then captures it.
+So every rule a card can hold is written down twice: our engine checks it before the card exists, and the gateway sets it as the card's control at Airwallex. In the sandbox nobody else charges the card, so the gateway plays the vendor with Airwallex's issuing simulation: it authorizes the amount on the new card, then captures it.
 
 The four steps of [scenarios/airwallex-demo.json](scenarios/airwallex-demo.json):
 
 1. The agent proposes the monthly 49.00 USD. The policy allows it, the card is issued, and the simulated authorization and capture go through.
 2. The vendor's page pushes the annual plan and the agent proposes 470.00 USD. The policy refuses it (`per_payment_limit_exceeded`), and no card is issued or charged.
-3. No agent in this step. The vendor charges 470.00 USD straight to the card from step 1, as a vendor that kept the card could, and our policy is not asked. The card's own limits decline it, and the page sets Airwallex's decline reason beside the receipt from step 2.
+3. No agent in this step. The vendor charges 470.00 USD straight to the card from step 1, as a vendor that kept the card could, and our policy is not asked. The hand-written answer is a decline, and the page sets its reason beside the receipt from step 2.
 4. The agent retries the first payment with the same request ID. The policy refuses it (`duplicate_request_id`).
 
 Airwallex names its decline in the transaction's `failure_reason`. For the rules a card can check, ours and theirs line up like this:
@@ -159,7 +159,7 @@ Before any card is issued, the cash reserve rule (`min_balance`) reads the walle
 
 The recordings in `tests/fixtures/airwallex/` were written by hand from the API reference, and each file's `_source` says so. Our sandbox key was refused at login on 2026-10-28, so nothing here has been recorded from the Airwallex sandbox yet. To run it against your own sandbox:
 
-1. At sandbox.airwallex.com, Settings > Developer > API keys, create a scoped key with read and write access to Issuing, and copy that key's Client ID and the key itself. The key is shown only once.
+1. At sandbox.airwallex.com, Settings > Developer > API keys, create a scoped key with read and write access to Issuing and read access to balances (the reserve rule reads them), and copy that key's Client ID and the key itself. The key is shown only once.
 2. Put them into `.env` as `AIRWALLEX_CLIENT_ID` and `AIRWALLEX_API_KEY`. The sandbox wallet needs at least 1,049.00 USD: the policy's reserve of 1,000.00 plus the 49.00 payment.
 3. Run the scenario, saving what the sandbox answers:
 
