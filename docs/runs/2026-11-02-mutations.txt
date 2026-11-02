@@ -1,4 +1,4 @@
-Commit 9db9028, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-02.
+Commit 9a11685, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-02.
 $ python -m venv .venv
 $ python -m pip install -e ".[dev]"
 $ python tools/mutate.py
@@ -73,10 +73,11 @@ red   declined reversal reported as reversed
 red   reversal with no answer loses the approved charge
 red   cut-off HTTP reply escapes the reversal
 red   broken recording read as no answer
+red   physical-card field on a virtual card
 red   hand-written answers labelled recorded
 red   label counts steps that did not run
 red   recording does not say it was recorded
 red   card controls left out of the record
 red   card controls read from the answer
 red   card and receipt always match
-76 mutations, 0 not caught
+77 mutations, 0 not caught

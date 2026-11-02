@@ -1,6 +1,6 @@
 {
-  "_source": "Written by hand from the Airwallex API reference (read 2026-10-28), NOT recorded from the sandbox: the sandbox key did not log in yet. A run with --sandbox --record replaces this file. Step 1: the reserve check, the cardholder lookup, a card for the allowed 49.00 USD, its authorization and capture.",
-  "recorded": false,
+  "_source": "recorded from the Airwallex sandbox on 2026-11-02 by python -m intent_pay.agent --record, airwallex-demo.json, step 'Monthly renewal'",
+  "recorded": true,
   "exchanges": [
     {
       "request": {
@@ -14,8 +14,8 @@
       "response": {
         "status": 201,
         "body": {
-          "token": "REDACTED",
-          "expires_at": "2026-10-28T13:00:00+0000"
+          "expires_at": "2026-11-02T11:18:08+0000",
+          "token": "REDACTED"
         }
       }
     },
@@ -32,13 +32,418 @@
         "status": 200,
         "body": [
           {
-            "account_type": "MULTI_CURRENCY",
-            "currency": "USD",
-            "available_amount": 5000.0,
+            "available_amount": 0,
+            "currency": "AED",
             "pending_amount": 0,
-            "prepayment_amount": 0,
             "reserved_amount": 0,
-            "total_amount": 5000.0
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "ARS",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "AUD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "BDT",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "BHD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "BOB",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "BRL",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "CAD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "CHF",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "CLP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 10000000,
+            "currency": "CNY",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 10000000,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "COP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "CZK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "DKK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "EGP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 10000000,
+            "currency": "EUR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 10000000,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 10000000,
+            "currency": "GBP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 10000000,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "HKD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "HRK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "HUF",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "IDR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "ILS",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "INR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "JPY",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "KRW",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "LKR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "MAD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "MXN",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "MYR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "NOK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "NPR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "NZD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "PEN",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "PHP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "PKR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "PLN",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "RON",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "SAR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "SEK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "SGD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "THB",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "TRY",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 10000000,
+            "currency": "USD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 10000000,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "UYU",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "VND",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "ZAR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
           }
         ]
       }
@@ -58,8 +463,23 @@
           "has_more": false,
           "items": [
             {
-              "cardholder_id": "ch000000-0000-4000-8000-000000000001",
+              "cardholder_id": "60bfa580-c60b-4da7-87f4-83fe7eb67eb1",
               "email": "agent@intent-pay.example",
+              "individual": {
+                "address": {
+                  "city": "San Francisco",
+                  "country": "US",
+                  "line1": "1 Market Street",
+                  "postcode": "94105",
+                  "state": "CA"
+                },
+                "date_of_birth": "1990-01-01",
+                "name": {
+                  "first_name": "Sandbox",
+                  "last_name": "Agent",
+                  "name_on_card": "Sandbox Agent"
+                }
+              },
               "status": "READY",
               "type": "INDIVIDUAL"
             }
@@ -74,16 +494,108 @@
         "headers": {
           "Content-Type": "application/json"
         },
-        "body": null
+        "body": {
+          "request_id": "acme-nov-1102104807-card",
+          "cardholder_id": "60bfa580-c60b-4da7-87f4-83fe7eb67eb1",
+          "created_by": "intent-pay gateway",
+          "form_factor": "VIRTUAL",
+          "is_personalized": false,
+          "program": {
+            "purpose": "COMMERCIAL"
+          },
+          "nick_name": "intent-pay acme-nov-1102104807",
+          "client_data": "receipt:1:b1fdf58c33514ec6",
+          "authorization_controls": {
+            "allowed_transaction_count": "MULTIPLE",
+            "allowed_currencies": [
+              "USD"
+            ],
+            "transaction_limits": {
+              "currency": "USD",
+              "limits": [
+                {
+                  "amount": 60,
+                  "interval": "PER_TRANSACTION"
+                },
+                {
+                  "amount": 100,
+                  "interval": "DAILY"
+                },
+                {
+                  "amount": 49,
+                  "interval": "ALL_TIME"
+                }
+              ]
+            },
+            "allowed_merchant_categories": [
+              "5734",
+              "7372"
+            ]
+          }
+        }
       },
       "response": {
         "status": 202,
         "body": {
-          "card_id": "c0ffee00-0000-4000-8000-000000000001",
+          "alert_settings": {
+            "low_remaining_transaction_limit": {
+              "enabled": true,
+              "percent": 10
+            }
+          },
+          "authorization_controls": {
+            "allowed_currencies": [
+              "USD"
+            ],
+            "allowed_merchant_brands": {
+              "categories": [],
+              "ids": [],
+              "subcategories": []
+            },
+            "allowed_merchant_categories": [
+              "5734",
+              "7372"
+            ],
+            "allowed_merchant_countries": [],
+            "allowed_transaction_count": "MULTIPLE",
+            "blocked_transaction_usages": [],
+            "transaction_limits": {
+              "currency": "USD",
+              "limits": [
+                {
+                  "amount": 60,
+                  "interval": "PER_TRANSACTION"
+                },
+                {
+                  "amount": 100,
+                  "interval": "DAILY"
+                },
+                {
+                  "amount": 49,
+                  "interval": "ALL_TIME"
+                }
+              ]
+            }
+          },
+          "brand": "VISA",
+          "card_id": "70c651cb-86ca-4b45-9096-0fcb884678cb",
+          "card_number": "REDACTED",
           "card_status": "ACTIVE",
+          "cardholder_id": "60bfa580-c60b-4da7-87f4-83fe7eb67eb1",
+          "client_data": "receipt:1:b1fdf58c33514ec6",
+          "created_at": "2026-11-02T10:48:11.234+0000",
+          "created_by": "intent-pay gateway",
           "form_factor": "VIRTUAL",
-          "nick_name": "intent-pay acme-nov-t",
-          "card_number": "REDACTED"
+          "is_personalized": false,
+          "name_on_card": "Sandbox Business",
+          "nick_name": "intent-pay acme-nov-1102104807",
+          "program": {
+            "purpose": "COMMERCIAL",
+            "type": "DEBIT"
+          },
+          "purpose": "BUSINESS_EXPENSES",
+          "request_id": "acme-nov-1102104807-card",
+          "updated_at": "2026-11-02T10:48:11.234+0000"
         }
       }
     },
@@ -94,45 +606,82 @@
         "headers": {
           "Content-Type": "application/json"
         },
-        "body": null
+        "body": {
+          "card_id": "70c651cb-86ca-4b45-9096-0fcb884678cb",
+          "transaction_amount": 49,
+          "transaction_currency": "USD",
+          "merchant_info": "INTENT PAY SANDBOX VENDOR                  ",
+          "merchant_category_code": "7372"
+        }
       },
       "response": {
         "status": 201,
         "body": {
-          "card_id": "c0ffee00-0000-4000-8000-000000000001",
-          "card_transaction_id": "tx000000-0000-4000-8000-000000000001",
-          "card_transaction_lifecycle_id": "1f000000-0000-4000-8000-000000000049",
-          "process_result": "APPROVED",
+          "card_transaction_event_id": "01a19bdf-bcc5-7000-8a51-76f8bb8cd8e5",
+          "card_transaction_id": "01a19bdf-bcc5-7000-9e4b-f30b83d7e435",
+          "card_transaction_lifecycle_id": "01a19bdf-bcc5-7000-a73c-65271be0eb21",
           "type": "AUTHORIZATION",
           "subtype": "AUTHORIZATION",
+          "process_result": "APPROVED",
+          "transacted_at": "2026-11-02T10:48:13.765+0000",
+          "updated_at": "2026-11-02T10:48:14.726+0000",
+          "card_id": "70c651cb-86ca-4b45-9096-0fcb884678cb",
           "transaction_amount": 49,
           "transaction_currency": "USD",
+          "billing_amount": 49,
+          "billing_currency": "USD",
           "merchant": {
+            "name": "INTENT PAY SANDBOX VENDOR",
+            "city": "",
+            "country": "",
             "category_code": "7372"
-          }
+          },
+          "auth_code": "3OUXOJ",
+          "retrieval_ref": "948892341336",
+          "masked_card_number": "************3028",
+          "client_data": "receipt:1:b1fdf58c33514ec6",
+          "card_nickname": "intent-pay acme-nov-1102104807",
+          "network_transaction_id": "160312462097085"
         }
       }
     },
     {
       "request": {
         "method": "POST",
-        "path": "/api/v1/simulation/issuing/card_transaction_lifecycles/1f000000-0000-4000-8000-000000000049/capture",
+        "path": "/api/v1/simulation/issuing/card_transaction_lifecycles/01a19bdf-bcc5-7000-a73c-65271be0eb21/capture",
         "headers": {
           "Content-Type": "application/json"
         },
-        "body": null
+        "body": {}
       },
       "response": {
         "status": 200,
         "body": {
-          "card_id": "c0ffee00-0000-4000-8000-000000000001",
-          "card_transaction_id": "tx000000-0000-4000-8000-000000000002",
-          "card_transaction_lifecycle_id": "1f000000-0000-4000-8000-000000000049",
-          "process_result": "APPROVED",
+          "card_transaction_event_id": "01a19bdf-cc59-7000-9d47-acf7f8a50ef6",
+          "card_transaction_id": "01a19bdf-bcc5-7000-9e4b-f30b83d7e435",
+          "card_transaction_lifecycle_id": "01a19bdf-bcc5-7000-a73c-65271be0eb21",
           "type": "CLEARING",
           "subtype": "CLEARING",
+          "process_result": "APPROVED",
+          "transacted_at": "2026-11-02T10:48:17.753+0000",
+          "updated_at": "2026-11-02T10:48:18.815+0000",
+          "card_id": "70c651cb-86ca-4b45-9096-0fcb884678cb",
           "transaction_amount": 49,
-          "transaction_currency": "USD"
+          "transaction_currency": "USD",
+          "billing_amount": 49,
+          "billing_currency": "USD",
+          "merchant": {
+            "name": "AIRPRO_TX_GENERATOR",
+            "city": "A_CITY_NAME",
+            "country": "AUS",
+            "category_code": "7531"
+          },
+          "auth_code": "BWJ28V",
+          "retrieval_ref": "847514253441",
+          "masked_card_number": "************3028",
+          "client_data": "receipt:1:b1fdf58c33514ec6",
+          "card_nickname": "intent-pay acme-nov-1102104807",
+          "network_transaction_id": "160312462097085"
         }
       }
     }

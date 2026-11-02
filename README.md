@@ -12,7 +12,7 @@ The policy design is taken from Usenami Signer, our Rust signing service for tra
 
 ## Status
 
-Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter is written from Airwallex's API reference and tested on answers we wrote by hand from the same pages. It has not run against the Airwallex sandbox yet. The Claude agent mode is tested against a stand-in client, not yet against the API.
+Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. The Claude agent mode is tested against a stand-in client, not yet against the API.
 
 ## Run the demo
 
@@ -146,13 +146,13 @@ With Airwallex, every allowed payment gets its own virtual card, and the card ca
 | `DAILY` limit | the policy's `daily` |
 | `ALL_TIME` limit | the amount the engine allowed |
 
-So every rule a card can hold is written down twice: our engine checks it before the card exists, and the gateway sets it as the card's control at Airwallex. In the sandbox nobody else charges the card, so the gateway plays the vendor with Airwallex's issuing simulation: it authorizes the amount on the new card, then captures it.
+So every rule a card can hold is written down twice: our engine checks it before the card exists, and the gateway sets it as the card's control at Airwallex. Airwallex's answer to the card request carries the same controls back. In the sandbox nobody else charges the card, so the gateway plays the vendor with Airwallex's issuing simulation: it authorizes the amount on the new card, then captures it.
 
 The four steps of [scenarios/airwallex-demo.json](scenarios/airwallex-demo.json):
 
 1. The agent proposes the monthly 49.00 USD. The policy allows it, the card is issued, and the simulated authorization and capture go through.
 2. The vendor's page pushes the annual plan and the agent proposes 470.00 USD. The policy refuses it (`per_payment_limit_exceeded`), and no card is issued or charged.
-3. No agent in this step. The vendor charges 470.00 USD straight to the card from step 1, as a vendor that kept the card could, and our policy is not asked. The hand-written answer is a decline, and the page sets its reason beside the receipt from step 2.
+3. No agent in this step. The vendor charges 470.00 USD straight to the card from step 1, as a vendor that kept the card could, and our policy is not asked. Airwallex declines it with `LIMIT_EXCEEDED`, and the page sets that reason beside the receipt from step 2. The reason does not say which limit: 470.00 is over all three on the card.
 4. The agent retries the first payment with the same request ID. The policy refuses it (`duplicate_request_id`).
 
 Airwallex names its decline in the transaction's `failure_reason`. For the rules a card can check, ours and theirs line up like this:
@@ -165,9 +165,9 @@ Airwallex names its decline in the transaction's `failure_reason`. For the rules
 
 Before any card is issued, the cash reserve rule (`min_balance`) reads the wallet's available balance from Airwallex's balances API. Refunds are not built for Airwallex yet.
 
-The recordings in `tests/fixtures/airwallex/` were written by hand from the API reference, and each file's `_source` says so. Our sandbox key was refused at login on 2026-10-28, so nothing here has been recorded from the Airwallex sandbox yet. To run it against your own sandbox:
+The cassettes in `tests/fixtures/airwallex/` were recorded from the Airwallex sandbox on 2026-11-02 with `--record`, and each file's `_source` says so. To run it against your own sandbox:
 
-1. At sandbox.airwallex.com, Settings > Developer > API keys, create a scoped key with read and write access to Issuing, read access to balances (the reserve rule reads them) and write access to Simulations (the adapter simulates the cardholder review and the charges), and copy that key's Client ID and the key itself. The key is shown only once.
+1. At sandbox.airwallex.com, Developer > API keys, create a scoped key with read and write access to Issuing, read access to balances (the reserve rule reads them) and write access to Simulations (the adapter simulates the cardholder review and the charges), and copy that key's Client ID and the key itself. The key is shown only once.
 2. Put them into `.env` as `AIRWALLEX_CLIENT_ID` and `AIRWALLEX_API_KEY`. The sandbox wallet needs at least 1,049.00 USD: the policy's reserve of 1,000.00 plus the 49.00 payment.
 3. Run the scenario, saving what the sandbox answers:
 

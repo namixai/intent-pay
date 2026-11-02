@@ -92,7 +92,7 @@ def test_airwallex_demo_names_its_provider_and_shows_the_vendor_step(tmp_path):
         demo.run_step(number)
     view = demo.view()
     assert view["provider"] == "Airwallex"
-    assert view["mode"]["payments"] == "Airwallex sandbox answers written from its API reference, not recorded"
+    assert view["mode"]["payments"] == "recorded Airwallex sandbox answers"
     charge = [e for e in view["steps"][2]["events"] if e["kind"] == "vendor_charge"][0]
     assert charge["compare"]["match"] is True
     assert [r.get("operation") for r in view["ledger"]["records"] if r["kind"] == "execution"] == ["pay", "forced_charge"]
@@ -104,7 +104,7 @@ def test_airwallex_step_one_shows_the_card_controls_we_sent(tmp_path):
     view = demo.view()
     decision = [e for e in view["steps"][0]["events"] if e["kind"] == "decision"][0]
     create = [s for s in decision["outcome"]["payment"]["steps"] if s["call"] == "create_card"][0]
-    # The hand-written answer has no controls in it: these are the ones our request carried.
+    # These are the ones our request carried, not the ones in the answer.
     assert create["sent"] == {
         "allowed_transaction_count": "MULTIPLE", "allowed_currencies": ["USD"],
         "allowed_merchant_categories": ["5734", "7372"],
