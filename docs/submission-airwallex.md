@@ -28,7 +28,7 @@ Only when the intent passes does the gateway issue a virtual card for that one p
 
 ## What ran in the Airwallex sandbox
 
-All four steps from our idea ran on 2026-11-02, and the demo replays those recordings:
+All four steps from our idea ran on 2026-11-02. Steps 1 and 3 called Airwallex, and the demo replays those recordings. Steps 2 and 4 stop at our policy and make no Airwallex call.
 
 1. The agent reads an invoice and proposes the monthly 49.00 USD. The policy allows it. The gateway issues the card, and a simulated authorization and capture are approved.
 2. A vendor page tells AI assistants that monthly billing is over. The agent follows it and proposes 470.00 USD, annual. The policy refuses it (per_payment_limit_exceeded). No card is issued and nothing reaches Airwallex.
@@ -43,7 +43,7 @@ Issuing: cardholders and cards with authorization controls. Issuing simulations:
 
 ## Run it
 
-Python 3.11 or newer. No keys are needed: the demo replays the recorded answers.
+Python 3.11 or newer. No keys are needed: the demo replays the recorded answers for steps 1 and 3.
 
     python -m venv .venv
     source .venv/bin/activate
