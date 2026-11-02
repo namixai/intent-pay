@@ -146,7 +146,7 @@ const GOOD = ["CREATED", "COMPLETED", "PENDING", "READY", "ACTIVE", "APPROVED", 
 const INTERVALS = { PER_TRANSACTION: "per transaction", DAILY: "daily", ALL_TIME: "all time" };
 
 // The card controls as our gateway sent them in create_card. They come from our request, so the
-// page says so: the sandbox's answer does not confirm them.
+// page says so.
 function sentControls(sent) {
   const limits = sent.transaction_limits || { limits: [] };
   return h("div", { class: "sent" },

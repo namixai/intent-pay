@@ -1,5 +1,5 @@
-"""The Airwallex adapter on hand-built answers. The cassettes in tests/fixtures/airwallex/ follow
-the API reference; each says in `_source` whether it was recorded from the sandbox."""
+"""The Airwallex adapter on hand-built answers and on the cassettes in tests/fixtures/airwallex/,
+recorded from the sandbox; each says so in `_source`."""
 
 import http.client
 import json
@@ -89,6 +89,8 @@ def test_pay_issues_a_card_then_authorizes_and_captures_on_it():
     card = t.calls[1]["body"]
     assert card["request_id"] == "acme-nov-t-card" and card["cardholder_id"] == "ch-1"
     assert card["form_factor"] == "VIRTUAL" and card["client_data"] == "receipt:1:" + "ab" * 8
+    # The sandbox answers 400 to this field on a virtual card: "activate_on_issue is for physical card only".
+    assert "activate_on_issue" not in card
     assert card["authorization_controls"] == card_controls(POLICY, Intent.parse(MONTHLY))
     # The record keeps the controls as sent; this answer echoes none of them back.
     assert result.steps[0]["call"] == "create_card" and result.steps[0]["sent"] == card["authorization_controls"]
@@ -343,6 +345,19 @@ def test_fixtures_say_whether_they_were_recorded():
     for path in FIXTURES.glob("*.json"):
         data = json.loads(path.read_text())
         assert data.get("recorded") is ("NOT recorded" not in data["_source"]), path
+
+
+def test_the_recorded_card_answer_carries_the_controls_we_sent():
+    cassette = json.loads((FIXTURES / "pay-cleared.json").read_text())
+    create = [e for e in cassette["exchanges"] if e["request"]["path"] == "/api/v1/issuing/cards/create"][0]
+    sent, answered = create["request"]["body"]["authorization_controls"], create["response"]["body"]["authorization_controls"]
+    assert sent == {k: answered[k] for k in sent}
+
+
+def test_the_recorded_charge_is_declined_by_a_limit():
+    cassette = json.loads((FIXTURES / "vendor-charge-declined.json").read_text())
+    answer = cassette["exchanges"][-1]["response"]["body"]
+    assert answer["process_result"] == "DECLINED" and answer["failure_reason"] == "LIMIT_EXCEEDED"
 
 
 def test_the_label_covers_only_the_steps_that_run(tmp_path):

@@ -161,6 +161,8 @@ MUTATIONS = [
      "NO_ANSWER = (OSError, http.client.HTTPException, AirwallexError)", "NO_ANSWER = (OSError, AirwallexError)"),
     ("broken recording read as no answer", "src/intent_pay/adapters/airwallex.py",
      "except NO_ANSWER as exc:  # the hold's state is not known", "except Exception as exc:  # the hold's state is not known"),
+    ("physical-card field on a virtual card", "src/intent_pay/adapters/airwallex.py",
+     '"is_personalized": False,', '"is_personalized": False, "activate_on_issue": True,'),
     ("hand-written answers labelled recorded", "src/intent_pay/agent.py",
      'if isinstance(cassette, dict) and cassette.get("recorded") is False:', "if False:"),
     ("label counts steps that did not run", "src/intent_pay/agent.py",

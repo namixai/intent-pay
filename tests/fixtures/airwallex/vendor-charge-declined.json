@@ -1,6 +1,6 @@
 {
-  "_source": "Written by hand from the Airwallex API reference (read 2026-10-28), NOT recorded from the sandbox: the sandbox key did not log in yet. A run with --sandbox --record replaces this file. Step 3: the vendor charges 470.00 USD to the step 1 card; the card's limits decline it.",
-  "recorded": false,
+  "_source": "recorded from the Airwallex sandbox on 2026-11-02 by python -m intent_pay.agent --record, airwallex-demo.json, step 'The vendor charges the card anyway'",
+  "recorded": true,
   "exchanges": [
     {
       "request": {
@@ -14,8 +14,8 @@
       "response": {
         "status": 201,
         "body": {
-          "token": "REDACTED",
-          "expires_at": "2026-10-28T13:00:00+0000"
+          "expires_at": "2026-11-02T11:18:21+0000",
+          "token": "REDACTED"
         }
       }
     },
@@ -26,23 +26,43 @@
         "headers": {
           "Content-Type": "application/json"
         },
-        "body": null
+        "body": {
+          "card_id": "70c651cb-86ca-4b45-9096-0fcb884678cb",
+          "transaction_amount": 470,
+          "transaction_currency": "USD",
+          "merchant_info": "INTENT PAY SANDBOX VENDOR                  ",
+          "merchant_category_code": "7372"
+        }
       },
       "response": {
         "status": 201,
         "body": {
-          "card_id": "c0ffee00-0000-4000-8000-000000000001",
-          "card_transaction_id": "tx000000-0000-4000-8000-000000000003",
-          "card_transaction_lifecycle_id": "1f000000-0000-4000-8000-000000000470",
-          "process_result": "DECLINED",
-          "failure_reason": "LIMIT_EXCEEDED",
+          "card_transaction_event_id": "01a19bdf-de66-7000-817b-7e06eec6f65d",
+          "card_transaction_id": "01a19bdf-de66-7000-84fa-38e282b1e2d7",
+          "card_transaction_lifecycle_id": "01a19bdf-de66-7000-bc15-9a46f06563da",
           "type": "AUTHORIZATION",
           "subtype": "AUTHORIZATION",
+          "process_result": "DECLINED",
+          "transacted_at": "2026-11-02T10:48:22.374+0000",
+          "updated_at": "2026-11-02T10:48:22.894+0000",
+          "card_id": "70c651cb-86ca-4b45-9096-0fcb884678cb",
           "transaction_amount": 470,
           "transaction_currency": "USD",
+          "billing_amount": 470,
+          "billing_currency": "USD",
           "merchant": {
+            "name": "INTENT PAY SANDBOX VENDOR",
+            "city": "",
+            "country": "",
             "category_code": "7372"
-          }
+          },
+          "auth_code": "NF4TVU",
+          "retrieval_ref": "560725803639",
+          "masked_card_number": "************3028",
+          "failure_reason": "LIMIT_EXCEEDED",
+          "client_data": "receipt:1:b1fdf58c33514ec6",
+          "card_nickname": "intent-pay acme-nov-1102104807",
+          "network_transaction_id": "083702316858951"
         }
       }
     }

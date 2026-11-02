@@ -117,7 +117,7 @@ Keep the model's judgment and the permission to spend apart and the design gets 
 
 ## What's next
 
-The Claude mode (below, under tools) has run only against a stand-in client. Running it against the API is the next step, and so is moving the gateway into its own process. The repository also holds an Airwallex adapter, written from Airwallex's API reference and tested on answers we wrote by hand. It has not run against the Airwallex sandbox yet.
+The Claude mode (below, under tools) has run only against a stand-in client. Running it against the API is the next step, and so is moving the gateway into its own process. The repository also holds an Airwallex adapter, which ran its own four-step demo in the Airwallex sandbox on 2026-11-02.
 ```
 
 ### Tools
@@ -152,5 +152,6 @@ Video link: the YouTube link, once it is uploaded.
 | 217 tests | [docs/runs/2026-11-02-tests.txt](runs/2026-11-02-tests.txt) |
 | 76 mutations, none uncaught | [docs/runs/2026-11-02-mutations.txt](runs/2026-11-02-mutations.txt) |
 | The run against the PayPal sandbox, 2026-10-28 | [docs/runs/2026-10-28-paypal-sandbox-ledger.txt](runs/2026-10-28-paypal-sandbox-ledger.txt) |
+| The run against the Airwallex sandbox, 2026-11-02 | [docs/runs/2026-11-02-airwallex-sandbox.txt](runs/2026-11-02-airwallex-sandbox.txt) |
 | First commit, 2026-10-27 | `git log --reverse` |
 | PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING, DUPLICATE_INVOICE_ID | [README](../README.md#paypal-sandbox) |

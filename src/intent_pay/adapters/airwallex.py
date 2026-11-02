@@ -322,7 +322,6 @@ class AirwallexPayer:
             "created_by": "intent-pay gateway",
             "form_factor": "VIRTUAL",
             "is_personalized": False,
-            "activate_on_issue": True,
             "program": {"purpose": "COMMERCIAL"},
             "nick_name": f"intent-pay {intent.request_id}"[:64],
             "client_data": f"receipt:{receipt.seq}:{(receipt.hash or '')[:16]}",
