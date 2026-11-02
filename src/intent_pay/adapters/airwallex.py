@@ -331,7 +331,10 @@ class AirwallexPayer:
         created = self.client.create_card(body)
         card = _obj(created)
         card_id = card.get("card_id")
-        steps.append(_step("create_card", created, card_id, card.get("card_status")))
+        # The controls go into the record as we sent them, so the page can show the card's limits
+        # from our request rather than from whatever the answer echoes back.
+        steps.append({**_step("create_card", created, card_id, card.get("card_status")),
+                      "sent": body["authorization_controls"]})
         if created.status not in (200, 201, 202) or not card_id:
             code, message = _error(created)
             return PaymentResult(PROVIDER, "pay", False, code, None, f"card not created: {message}".rstrip(": "), tuple(steps))

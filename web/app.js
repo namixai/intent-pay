@@ -143,11 +143,28 @@ function policyLane(decisions, charge) {
 
 const GOOD = ["CREATED", "COMPLETED", "PENDING", "READY", "ACTIVE", "APPROVED", "CLEARED", "OK"];
 
+const INTERVALS = { PER_TRANSACTION: "per transaction", DAILY: "daily", ALL_TIME: "all time" };
+
+// The card controls as our gateway sent them in create_card. They come from our request, so the
+// page says so: the sandbox's answer does not confirm them.
+function sentControls(sent) {
+  const limits = sent.transaction_limits || { limits: [] };
+  return h("div", { class: "sent" },
+    h("div", { class: "sent-head" }, "Card controls in our request, not an answer from the sandbox"),
+    h("dl", { class: "kv" },
+      h("dt", null, "currencies"), h("dd", null, (sent.allowed_currencies || []).join(", ")),
+      h("dt", null, "merchant categories"), h("dd", null, (sent.allowed_merchant_categories || ["any"]).join(", ")),
+      ...limits.limits.flatMap((l) => [
+        h("dt", null, INTERVALS[l.interval] || l.interval),
+        h("dd", null, `${Number(l.amount).toFixed(2)} ${limits.currency}`)])));
+}
+
 function callList(payment) {
   return h("ul", { class: "calls" }, payment.steps.map((s) => h("li", null,
     h("div", { class: "call" }, `${s.call}  HTTP ${s.http}`),
     h("div", null, h("span", { class: `status ${GOOD.includes(s.status) ? "good" : "bad"}` }, s.status || ""), s.id ? `  ${s.id}` : ""),
-    s.debug_id ? h("div", { class: "call" }, `debug_id ${s.debug_id}`) : null)));
+    s.debug_id ? h("div", { class: "call" }, `debug_id ${s.debug_id}`) : null,
+    s.sent ? sentControls(s.sent) : null)));
 }
 
 function providerLane(decisions, charge) {

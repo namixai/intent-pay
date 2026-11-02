@@ -90,6 +90,8 @@ def test_pay_issues_a_card_then_authorizes_and_captures_on_it():
     assert card["request_id"] == "acme-nov-t-card" and card["cardholder_id"] == "ch-1"
     assert card["form_factor"] == "VIRTUAL" and card["client_data"] == "receipt:1:" + "ab" * 8
     assert card["authorization_controls"] == card_controls(POLICY, Intent.parse(MONTHLY))
+    # The record keeps the controls as sent; this answer echoes none of them back.
+    assert result.steps[0]["call"] == "create_card" and result.steps[0]["sent"] == card["authorization_controls"]
     auth = t.calls[2]["body"]
     assert auth == {"card_id": "card-1", "transaction_amount": 49, "transaction_currency": "USD",
                     "merchant_info": MERCHANT_INFO, "merchant_category_code": "7372"}

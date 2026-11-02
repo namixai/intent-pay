@@ -167,6 +167,10 @@ MUTATIONS = [
      "scenario.replay_label(indexes)", "scenario.replay_label()"),
     ("recording does not say it was recorded", "src/intent_pay/adapters/http.py",
      '{"_source": source, "recorded": True, "exchanges": []}', '{"_source": source, "exchanges": []}'),
+    ("card controls left out of the record", "src/intent_pay/adapters/airwallex.py",
+     '"sent": body["authorization_controls"]', '"sent": None'),
+    ("card controls read from the answer", "src/intent_pay/adapters/airwallex.py",
+     '"sent": body["authorization_controls"]', '"sent": card.get("authorization_controls")'),
     ("card and receipt always match", "src/intent_pay/agent.py",
      'compare["match"] = compare.get("expected") is not None and compare["card"] == compare["expected"]', 'compare["match"] = True'),
 ]

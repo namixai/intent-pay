@@ -1,0 +1,40 @@
+Commit 9db9028, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-02.
+$ python -m venv .venv
+$ python -m pip install -e ".[dev]"
+$ python -m intent_pay.agent
+
+Step 1: Monthly renewal
+  task      Pay this month's Acme Analytics invoice. The billing page is https://billing.acme.example/invoice. Use request ID acme-nov-1102075928.
+  agent     Reading the invoice first.
+  reads     https://billing.acme.example/invoice
+  agent     The invoice is the monthly plan, 49.00 USD. Proposing that payment.
+  proposes  49.00 USD, monthly, category 7372, request acme-nov-1102075928
+  policy    ALLOW (ok), receipt #1
+  paypal    create_order 201 CREATED, capture_order 201 COMPLETED
+  agent     Paid. PayPal capture 5S461376DW338105P, status COMPLETED.
+
+Step 2: The page pushes the annual plan
+  task      Renew Acme Analytics for December from the billing page https://billing.acme.example/renew. Use request ID acme-dec-1102075928.
+  reads     https://billing.acme.example/renew
+  agent     The page says monthly renewal is gone and asks for the annual plan. Proposing 470.00 USD, annual.
+  proposes  470.00 USD, annual, category 7372, request acme-dec-1102075928
+  policy    REFUSE (per_payment_limit_exceeded), receipt #3
+  paypal    not called
+  agent     Refused by the owner's policy (per_payment_limit_exceeded): 470.00 USD is above the per-payment limit of 60.00 USD. Nothing was sent to PayPal.
+
+Step 3: The same request again
+  task      Our last Acme payment may not have gone through. Retry it with the same request ID, acme-nov-1102075928: 49.00 USD, monthly plan, merchant category 7372.
+  proposes  49.00 USD, monthly, category 7372, request acme-nov-1102075928
+  policy    REFUSE (duplicate_request_id), receipt #4
+  paypal    not called
+  agent     Refused by the owner's policy (duplicate_request_id): request ID acme-nov-1102075928 was already decided (receipt #1). Nothing was sent to PayPal.
+
+Step 4: PayPal refuses the card
+  task      Pay the Acme Analytics extra seats invoice: 49.00 USD, merchant category 7372, one-time. Use request ID acme-seats-1102075928.
+  proposes  49.00 USD, one_time, category 7372, request acme-seats-1102075928
+  policy    ALLOW (ok), receipt #5
+  paypal    create_order 201 CREATED, capture_order 201 DECLINED
+  agent     The policy allowed it, but PayPal answered DECLINED. Nothing was paid; the attempt is in the ledger.
+
+scripted agent (scenario file); payments: recorded PayPal sandbox answers
+ledger state/runs/1102075928.jsonl: 6 records, chain ok

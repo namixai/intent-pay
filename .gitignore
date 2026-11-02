@@ -1,4 +1,5 @@
 # Secrets never enter the repository. Keys are read from the environment only.
+# judges-sandbox.env is the one exception: the hackathon rules ask for sandbox logins in the repo.
 .env
 .env.*
 !.env.example
