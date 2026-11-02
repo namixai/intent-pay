@@ -1,0 +1,80 @@
+Commit 9db9028, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-02.
+$ python tools/mutate.py
+
+red   per_payment inclusive -> exclusive
+red   per_payment rule removed
+red   duplicate check removed
+red   daily ignores what was spent
+red   refusals count toward the day
+red   day is not per currency
+red   day never resets
+red   payee rule removed
+red   category rule removed
+red   currency rule fails open
+red   reserve boundary off by one
+red   reserve fails open when balance unknown
+red   garbage balance accepted
+red   rule error fails open
+red   write error swallowed
+red   hash not checked
+red   chain link not checked
+red   partial line accepted
+red   no lock between threads
+red   no file lock between processes
+red   decide lets an error escape
+red   gateway pays a refused decision
+red   network error reads as paid
+red   refund of a failed payment
+red   refund twice
+red   execution for a refusal accepted
+red   order without invoice_id
+red   capture without the card
+red   live PayPal host accepted
+red   client secret in repr
+red   no token cache
+red   no token margin
+red   token fetched without the lock
+red   no retry on 401
+red   retry 401 without end
+red   declined capture reads as paid
+red   redaction off
+red   authorization header recorded
+red   replay ignores the path
+red   malformed does not burn its ID
+red   unknown fields accepted
+red   decimals not checked
+red   policy with no allowlist loads
+red   agent reads any page
+red   scripted agent claims every payment
+red   run tag not put into request IDs
+red   model turns unbounded
+red   tool error reported as success
+red   reset keeps the old ledger
+red   page header not required
+red   any host name accepted
+red   card allows any merchant category
+red   card has no cap at the allowed amount
+red   card per-transaction limit is the daily one
+red   card allows any currency
+red   declined authorization reads as paid
+red   failed capture reads as paid
+red   inactive card is charged
+red   approved vendor charge left on the card
+red   airwallex host not checked
+red   airwallex key sent on every call
+red   airwallex no retry on 401
+red   missing balance reads as plenty
+red   card number recorded
+red   vendor charge on a refused request
+red   failed reversal reported as reversed
+red   declined reversal reported as reversed
+red   reversal with no answer loses the approved charge
+red   cut-off HTTP reply escapes the reversal
+red   broken recording read as no answer
+red   hand-written answers labelled recorded
+red   label counts steps that did not run
+red   recording does not say it was recorded
+red   card controls left out of the record
+red   card controls read from the answer
+red   card and receipt always match
+76 mutations, 0 not caught

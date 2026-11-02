@@ -126,6 +126,14 @@ PAYPAL_CARD_NAME=CCREJECT-REFUSED python -m intent_pay pay --policy policies/pay
 
 The cassettes in `tests/fixtures/paypal/` were recorded from the PayPal sandbox on 2026-10-27 with `--record`. Each file's `_source` field says what was sent.
 
+For hackathon judges, [judges-sandbox.env](judges-sandbox.env) has the keys of a PayPal sandbox app and the login of its sandbox business account, so you can skip the setup above:
+
+```bash
+python -m intent_pay.web --sandbox --env judges-sandbox.env
+```
+
+If the file's values are empty, the page opens and each step answers `missing environment variable(s)`. The default demo under [Run the demo](#run-the-demo) still needs no keys.
+
 ## Airwallex sandbox
 
 With Airwallex, every allowed payment gets its own virtual card, and the card carries the policy with it. The gateway issues it only after the engine says yes, with these authorization controls from [policies/airwallex-sandbox.toml](policies/airwallex-sandbox.toml) and the allowed intent:

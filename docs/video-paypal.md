@@ -13,7 +13,7 @@ A screen recording with a voiceover, about 2:45, under the 3-minute limit. No mu
 
 3. Open http://127.0.0.1:8765 in a clean browser window: no bookmarks bar, no other tabs, window about 1440 by 900. The page follows the system's light or dark theme; keep the same one for the whole take.
 4. If you want shot 8, sign in at sandbox.paypal.com as the sandbox business account in a second tab.
-5. Have a second terminal ready in the repository folder for shot 9.
+5. Have a second terminal ready in the repository folder for shots 9 and 10.
 
 Every run gets new request IDs, so a failed take can simply be recorded again. "Start over" on the page begins a new run.
 
