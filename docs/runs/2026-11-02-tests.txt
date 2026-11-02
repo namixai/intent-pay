@@ -1,4 +1,6 @@
 Commit 9db9028, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-02.
+$ python -m venv .venv
+$ python -m pip install -e ".[dev]"
 $ python -m pytest -o addopts= -q
 
 217 passed in 5.01s

@@ -6,7 +6,7 @@ A payment agent that only proposes. A policy in code decides. The sandbox key ne
 
 An agent that can pay is as risky as the credential it holds. Give it an API key or a card number, and one wrong step or one prompt injection spends money. Guardrails written into the prompt sit exactly where an attacker can reach them.
 
-Here the agent holds nothing. It fills in an intent (amount, currency, payee or merchant category, purpose, request ID) and hands it over. A policy engine, ordinary Python and not a model, checks the intent against rules the account owner wrote. The sandbox key sits with the process that pays, and that process acts only on an allowed intent. Every decision, allow or refuse, leaves a receipt that names the rule.
+Here the agent holds nothing. It fills in an intent (amount, currency, payee or merchant category, purpose, request ID) and hands it over. A policy engine, ordinary Python and not a model, checks the intent against rules the account owner wrote. The sandbox key sits with the gateway, the part that pays, and the gateway acts only on an allowed intent. In this demo the agent and the gateway run in one Python process, so that line is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. Every decision leaves a receipt. A refusal names the rule that failed, and an allowed one records `ok`: all rules passed.
 
 The policy design is taken from Usenami Signer, our Rust signing service for trading agents ([github.com/namixai/signer](https://github.com/namixai/signer)). This repository is a new build of the same idea, in Python, for payments.
 
@@ -45,7 +45,7 @@ By default the agent follows the tool calls written in the scenario, and PayPal'
 - `--sandbox` (on either command) pays in your own PayPal sandbox, with the keys from `.env`; setup is under [PayPal sandbox](#paypal-sandbox). Every run puts a fresh tag into its request IDs, so a second run is not refused as an invoice PayPal has already been paid for.
 - `INTENT_PAY_AGENT=claude` puts Claude in place of the script. Install it with `python -m pip install -e ".[agent]"` and set `ANTHROPIC_API_KEY`; the model is `INTENT_PAY_MODEL`, by default `claude-sonnet-5-5`, and the calls are billed to your key. Claude gets the same task, page and two tools (`read_page` and `propose_payment`). It may or may not follow the page to the annual plan. The script always does, so the refusal shows on every run. Either way the policy decides.
 
-The agent never sees a key or the card. What comes back from `propose_payment` is the decision, the rule behind it and PayPal's status.
+The agent never sees a key or the card. What comes back from `propose_payment` is the decision, its reason and PayPal's status.
 
 ## How the policy decides
 
@@ -87,13 +87,13 @@ The ledger is a JSON Lines file, one receipt per line. Each receipt carries the 
 One payment, step by step:
 
 1. The agent's proposal goes to the policy engine. If it is refused, nothing else happens: no PayPal call is made.
-2. An allowed intent becomes an order (`POST /v2/checkout/orders`, intent `CAPTURE`). The order carries the amount, the payee if the intent names one, the request ID as `invoice_id` and the receipt number as `custom_id`. With no payee, PayPal pays the app's own sandbox account.
+2. An allowed intent becomes an order (`POST /v2/checkout/orders`, intent `CAPTURE`). The order carries the amount, the payee if the intent names one, the request ID as `invoice_id` and the receipt's number and the start of its hash as `custom_id`. With no payee, PayPal pays the app's own sandbox account.
 3. The gateway captures the order with the owner's card as the payment source (`POST /v2/checkout/orders/{id}/capture`). PayPal's Orders v2 reference allows a capture without buyer approval when the capture request carries a payment source, so no one has to click through PayPal for each payment.
 4. PayPal's answer goes into the ledger as an execution record linked to the decision.
 
 A repeated request ID meets three checks, and we watched each of them in the sandbox. Our engine refuses a request ID it has seen before and calls nothing. If the ledger is lost and the engine allows the intent again, the gateway sends the same `PayPal-Request-Id` headers, and PayPal answers with the first order and capture (HTTP 200 instead of 201) without moving money a second time. A new order that reuses a paid `invoice_id` under new headers gets created, and PayPal refuses its capture with `DUPLICATE_INVOICE_ID`. That third check is an account setting, not a rule of the API: PayPal's error says the account "requires that Invoice Id be unique". The US Business sandbox account we created had it on, and we did not change it. On an account that allows duplicate invoice IDs, only the first two checks remain.
 
-The card is a saved card's vault ID (`PAYPAL_CARD_VAULT_ID`) or a sandbox test card from PayPal's card generator. Only the gateway process reads it, and it never appears in what the agent sees, in the ledger or in a recorded cassette. Sending raw card fields to the API outside a sandbox needs PCI SAQ D compliance, which is why the vault ID comes first. This build calls the sandbox only: it refuses to start with any other PayPal host.
+The card is a saved card's vault ID (`PAYPAL_CARD_VAULT_ID`) or a sandbox test card from PayPal's card generator. Only the gateway reads it, and it never appears in what the agent sees, in the ledger or in a recorded cassette. Sending raw card fields to the API outside a sandbox needs PCI SAQ D compliance, which is why the vault ID comes first. This build calls the sandbox only: it refuses to start with any other PayPal host.
 
 Try it with no keys and no network, on recorded responses:
 
@@ -126,13 +126,13 @@ PAYPAL_CARD_NAME=CCREJECT-REFUSED python -m intent_pay pay --policy policies/pay
 
 The cassettes in `tests/fixtures/paypal/` were recorded from the PayPal sandbox on 2026-10-27 with `--record`. Each file's `_source` field says what was sent.
 
-For hackathon judges, [judges-sandbox.env](judges-sandbox.env) has the keys of a PayPal sandbox app and the login of its sandbox business account, so you can skip the setup above:
+For hackathon judges, [judges-sandbox.env](judges-sandbox.env) is the template for the keys of a PayPal sandbox app and the login of its sandbox business account. With its values filled in, you can skip the setup above:
 
 ```bash
 python -m intent_pay.web --sandbox --env judges-sandbox.env
 ```
 
-If the file's values are empty, the page opens and each step answers `missing environment variable(s)`. The default demo under [Run the demo](#run-the-demo) still needs no keys.
+While the values are empty, as they are now, the page opens and each step answers `missing environment variable(s)`. The default demo under [Run the demo](#run-the-demo) still needs no keys.
 
 ## Airwallex sandbox
 
@@ -167,7 +167,7 @@ Before any card is issued, the cash reserve rule (`min_balance`) reads the walle
 
 The recordings in `tests/fixtures/airwallex/` were written by hand from the API reference, and each file's `_source` says so. Our sandbox key was refused at login on 2026-10-28, so nothing here has been recorded from the Airwallex sandbox yet. To run it against your own sandbox:
 
-1. At sandbox.airwallex.com, Settings > Developer > API keys, create a scoped key with read and write access to Issuing and read access to balances (the reserve rule reads them), and copy that key's Client ID and the key itself. The key is shown only once.
+1. At sandbox.airwallex.com, Settings > Developer > API keys, create a scoped key with read and write access to Issuing, read access to balances (the reserve rule reads them) and write access to Simulations (the adapter simulates the cardholder review and the charges), and copy that key's Client ID and the key itself. The key is shown only once.
 2. Put them into `.env` as `AIRWALLEX_CLIENT_ID` and `AIRWALLEX_API_KEY`. The sandbox wallet needs at least 1,049.00 USD: the policy's reserve of 1,000.00 plus the 49.00 payment.
 3. Run the scenario, saving what the sandbox answers:
 

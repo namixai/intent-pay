@@ -1,6 +1,6 @@
 # PayPal AI Hackathon: what we show
 
-The project in one line: a payment agent proposes, a policy in plain Python decides, and only the gateway process holds the PayPal sandbox key.
+The project in one line: a payment agent proposes, a policy engine in plain Python decides, and only the gateway holds the PayPal sandbox key.
 
 ## Run it
 
@@ -32,7 +32,7 @@ Checked on 2026-11-01 in a fresh clone of commit b5cb1d2 with an empty environme
 | The owner's rules | [policies/paypal-sandbox-live.toml](../policies/paypal-sandbox-live.toml) |
 | The rule engine | [src/intent_pay/policy.py](../src/intent_pay/policy.py) |
 | The typed proposal | [src/intent_pay/intent.py](../src/intent_pay/intent.py) |
-| The process that holds the key and pays | [src/intent_pay/gateway.py](../src/intent_pay/gateway.py) |
+| The gateway, which holds the key and pays | [src/intent_pay/gateway.py](../src/intent_pay/gateway.py) |
 | The PayPal Orders v2 calls | [src/intent_pay/adapters/paypal.py](../src/intent_pay/adapters/paypal.py) |
 | The hash-chained receipts | [src/intent_pay/ledger.py](../src/intent_pay/ledger.py) |
 | The agent, scripted or Claude | [src/intent_pay/agent.py](../src/intent_pay/agent.py) |
@@ -49,7 +49,7 @@ The script is [docs/video-paypal.md](video-paypal.md): about 2:45, under the 3-m
 
 ## For judges: the PayPal sandbox
 
-[judges-sandbox.env](../judges-sandbox.env) has what the rules ask for: the keys of a sandbox app, a test card and the login of its sandbox business account. `python -m intent_pay.web --sandbox --env judges-sandbox.env` runs the four steps against the PayPal sandbox, and the login shows the same payments at sandbox.paypal.com. While the file's values are empty, the page opens and each step answers `missing environment variable(s)`.
+[judges-sandbox.env](../judges-sandbox.env) is the template for what the rules ask for: the keys of a sandbox app, a test card and the login of its sandbox business account. With its values filled in, `python -m intent_pay.web --sandbox --env judges-sandbox.env` runs the four steps against the PayPal sandbox, and the login shows the same payments at sandbox.paypal.com. While the values are empty, as they are now, the page opens and each step answers `missing environment variable(s)`.
 
 ## The form text
 
@@ -64,7 +64,7 @@ intent-pay
 ### Elevator pitch
 
 ```text
-A payment agent that only proposes. A policy in plain Python decides, and only the gateway holds the PayPal sandbox key. An injected page can't push a payment past the owner's rules.
+A payment agent that only proposes. A policy engine in plain Python decides, and the model never sees the PayPal sandbox key. An injected page can't push a payment past the owner's rules.
 ```
 
 ### About the project
@@ -80,7 +80,7 @@ We had already worked on this for trading agents in Usenami Signer, our Rust sig
 
 It is for a team that wants an agent to pay its recurring software bills without giving the agent anything it could overspend with.
 
-The agent holds no key and no card. It fills in an intent (amount, currency, payee or merchant category, purpose, request ID) and hands it over. A policy engine, ordinary Python and not a model, checks the intent against rules the account owner wrote in a TOML file. Only the gateway process holds the PayPal key, and it acts only on an allowed intent. Every decision, allow or refuse, leaves a receipt that names the rule.
+The agent holds no key and no card. It fills in an intent (amount, currency, payee or merchant category, purpose, request ID) and hands it over. A policy engine, ordinary Python and not a model, checks the intent against rules the account owner wrote in a TOML file. Only the gateway holds the PayPal key, and it acts only on an allowed intent. In this demo the agent and the gateway run in one Python process, so that line is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. Every decision leaves a receipt. A refusal names the rule that failed, and an allowed one records that all rules passed.
 
 The demo page runs four steps and shows what the agent read and proposed, what the policy decided and why, and what PayPal answered:
 
@@ -95,7 +95,7 @@ The core is Python with no runtime dependencies. The rules run in a fixed order 
 
 The ledger is a JSON Lines file in which each receipt carries the hash of the one before it. Editing, deleting or reordering a line breaks the chain, and the next decision refuses.
 
-The PayPal adapter uses Orders v2. An allowed intent becomes an order, with the request ID as invoice_id and the receipt number as custom_id, and the gateway captures it with the owner's card as the payment source. PayPal's answer goes into the ledger, linked to its decision. A refund takes a receipt number and lands in the ledger the same way.
+The PayPal adapter uses Orders v2. An allowed intent becomes an order, with the request ID as invoice_id and the receipt's number and the start of its hash as custom_id, and the gateway captures it with the owner's card as the payment source. PayPal's answer goes into the ledger, linked to its decision. A refund takes a receipt number and lands in the ledger the same way.
 
 The default demo replays answers we recorded from the PayPal sandbox, with keys, tokens and card fields removed, so a judge can run it with no keys. One flag, --sandbox, runs the same steps against a live sandbox app.
 
@@ -117,7 +117,7 @@ Keep the model's judgment and the permission to spend apart and the design gets 
 
 ## What's next
 
-The Claude mode (below, under tools) has run only against a stand-in client. Running it against the API is the next step. The repository also holds an Airwallex adapter, written from Airwallex's API reference and tested on answers we wrote by hand. It has not run against the Airwallex sandbox yet.
+The Claude mode (below, under tools) has run only against a stand-in client. Running it against the API is the next step, and so is moving the gateway into its own process. The repository also holds an Airwallex adapter, written from Airwallex's API reference and tested on answers we wrote by hand. It has not run against the Airwallex sandbox yet.
 ```
 
 ### Tools
