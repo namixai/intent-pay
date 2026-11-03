@@ -28,6 +28,35 @@ def test_allow_within_every_rule(engine, ledger):
     assert ledger.verify() == 1
 
 
+ORDER = {"unit_price": "24.50", "quantity": 2, "currency": "USD"}
+
+
+def test_the_amount_the_order_works_out_is_allowed(engine):
+    assert engine.decide(intent(amount="49.00"), ORDER).allowed
+
+
+def test_refuse_an_amount_the_order_does_not_give(engine, ledger):
+    r = refused(engine.decide(intent(amount="49.50"), ORDER), Reason.AMOUNT_MISMATCH)
+    assert "2 x 24.50 USD = 49.00 USD" in r.detail and r.recorded and ledger.verify() == 1
+
+
+def test_refuse_a_currency_the_order_does_not_give(engine):
+    refused(engine.decide(intent(), {**ORDER, "currency": "EUR"}), Reason.AMOUNT_MISMATCH)
+
+
+def test_an_amount_over_a_limit_is_refused_for_the_limit_first(engine):
+    refused(engine.decide(intent(amount="470.00"), ORDER), Reason.PER_PAYMENT_LIMIT_EXCEEDED)
+
+
+@pytest.mark.parametrize("order", [{"unit_price": "49.00", "quantity": 0, "currency": "USD"},
+                                   {"unit_price": "49.00", "quantity": True, "currency": "USD"},
+                                   {"unit_price": "49.001", "quantity": 1, "currency": "USD"},
+                                   {"unit_price": "49.00", "quantity": 1},
+                                   "49.00"])
+def test_a_broken_order_refuses(engine, order):
+    refused(engine.decide(intent(), order), Reason.POLICY_ERROR)
+
+
 def test_amount_equal_to_per_payment_limit_is_allowed(engine):
     assert engine.decide(intent(amount="60.00")).allowed
 

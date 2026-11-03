@@ -53,10 +53,37 @@ class Reason(StrEnum):
     MERCHANT_CATEGORY_NOT_ALLOWED = "merchant_category_not_allowed"
     PER_PAYMENT_LIMIT_EXCEEDED = "per_payment_limit_exceeded"
     DAILY_LIMIT_EXCEEDED = "daily_limit_exceeded"
+    AMOUNT_MISMATCH = "amount_mismatch"
     BALANCE_UNAVAILABLE = "balance_unavailable"
     BELOW_MIN_BALANCE = "below_min_balance"
     LEDGER_UNAVAILABLE = "ledger_unavailable"
     POLICY_ERROR = "policy_error"
+
+
+@dataclass(frozen=True)
+class Order:
+    """What the owner asked for, set by code and not by the agent: a unit price, a quantity and a
+    currency. The engine works out the amount itself and refuses a proposal that asks for another."""
+    unit_price: Decimal
+    quantity: int
+    currency: str
+
+    @property
+    def amount(self) -> Decimal:
+        return self.unit_price * self.quantity
+
+    @classmethod
+    def parse(cls, value: Any) -> Order:
+        if isinstance(value, Order):
+            return value
+        if not isinstance(value, Mapping) or set(value) != {"unit_price", "quantity", "currency"}:
+            raise ValueError("an order is exactly unit_price, quantity and currency")
+        currency, quantity = value["currency"], value["quantity"]
+        if not isinstance(currency, str) or not CURRENCY.fullmatch(currency):
+            raise ValueError("order currency must be a three-letter code")
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity < 1:
+            raise ValueError("order quantity must be a whole number of at least 1")
+        return cls(parse_money(value["unit_price"], currency, "unit_price"), quantity, currency)
 
 
 class PolicyError(ValueError):
@@ -184,14 +211,15 @@ class Engine:
         self.balance = balance
         self.clock = clock
 
-    def decide(self, proposal: Any) -> Receipt:
-        """Never raises: whatever goes wrong comes back as a refusal."""
+    def decide(self, proposal: Any, order: Any = None) -> Receipt:
+        """Never raises: whatever goes wrong comes back as a refusal. With an `order`, the amount
+        must be the one the engine works out from it (amount_mismatch otherwise)."""
         try:
-            return self._decide(proposal)
+            return self._decide(proposal, None if order is None else Order.parse(order))
         except Exception as exc:  # fail-closed: nothing that breaks may read as an allow
             return self._unrecorded(utc_now(), Reason.POLICY_ERROR, f"{type(exc).__name__}: {exc}", None, None)
 
-    def _decide(self, proposal: Any) -> Receipt:
+    def _decide(self, proposal: Any, order: Order | None) -> Receipt:
         try:
             now = self.clock()
             if not isinstance(now, datetime) or now.tzinfo is None:
@@ -208,7 +236,7 @@ class Engine:
         try:
             with self.ledger.session() as state:
                 try:
-                    reason, detail = self._evaluate(intent, state, now)
+                    reason, detail = self._evaluate(intent, state, now, order)
                 except Exception as exc:  # fail-closed: a rule that breaks refuses
                     reason, detail = Reason.POLICY_ERROR, f"{type(exc).__name__}: {exc}"
                 decision = ALLOW if reason is Reason.OK else REFUSE
@@ -218,7 +246,8 @@ class Engine:
         except LedgerError as exc:
             return self._unrecorded(now, Reason.LEDGER_UNAVAILABLE, str(exc), intent.request_id, intent.to_dict())
 
-    def _evaluate(self, intent: Intent, state: LedgerState, now: datetime) -> tuple[Reason, str]:
+    def _evaluate(self, intent: Intent, state: LedgerState, now: datetime,
+                  order: Order | None = None) -> tuple[Reason, str]:
         cur = intent.currency
         if intent.request_id in state.request_ids:
             return Reason.DUPLICATE_REQUEST_ID, (
@@ -249,6 +278,13 @@ class Engine:
             return Reason.DAILY_LIMIT_EXCEEDED, (
                 f"{spent} {cur} already allowed on {day.isoformat()} (UTC); {intent.amount} more "
                 f"would pass the daily limit of {rule.daily} {cur}")
+
+        # After the limits, so a proposal over a limit is refused for the limit. Before the
+        # balance, so a wrong amount never costs a call to the provider.
+        if order is not None and (intent.currency != order.currency or intent.amount != order.amount):
+            return Reason.AMOUNT_MISMATCH, (
+                f"proposed {intent.amount} {cur}, but the order is {order.quantity} x {order.unit_price} "
+                f"{order.currency} = {order.amount} {order.currency}")
 
         if rule.min_balance is not None:
             balance = self._read_balance(cur)

@@ -13,7 +13,7 @@ import pytest
 from intent_pay.adapters.http import ReplayTransport
 from intent_pay.adapters.paypal import CardSource, PayPalClient, PayPalConfig, PayPalPayer
 from intent_pay.agent import (DEFAULT_MODEL, FALLBACK_BETA, MAX_TURNS, AgentError, ClaudeAgent, Scenario, ScriptedAgent,
-                              StepTools, fresh_run, make_agent, run_step, system_for, tools_for)
+                              StepTools, fresh_run, make_agent, run_step, sandbox_gateway, system_for, tools_for)
 from intent_pay.gateway import Gateway
 from intent_pay.intent import Intent
 from intent_pay.ledger import Ledger
@@ -96,6 +96,21 @@ def test_every_scripted_proposal_is_a_valid_intent_and_every_replay_exists(scena
                 Intent.parse(item["input"])
             if item.get("tool") == "read_page":
                 assert item["input"]["url"] == step["page"]["url"]
+
+
+def test_a_step_without_an_order_proposes_nothing(scenario, tmp_path):
+    step = {k: v for k, v in scenario.step(0, "t").items() if k != "order"}
+    proposal = next(i["input"] for i in step["script"] if i.get("tool") == "propose_payment")
+    seen, is_error, events = StepTools(step, gateway=None).call("propose_payment", proposal)
+    assert is_error and "no order" in seen["error"] and events == []
+
+
+def test_a_proposal_off_the_order_is_refused(scenario, tmp_path):
+    step = scenario.step(0, "t")
+    tools = StepTools(step, sandbox_gateway(scenario, step, Ledger(tmp_path / "l.jsonl"), False))
+    proposal = next(i["input"] for i in step["script"] if i.get("tool") == "propose_payment")
+    seen, _, _ = tools.call("propose_payment", {**proposal, "amount": "55.00"})
+    assert seen["decision"] == "refuse" and seen["reason"] == "amount_mismatch"
 
 
 def test_read_page_answers_only_the_step_page(scenario, tmp_path):

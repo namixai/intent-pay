@@ -146,6 +146,8 @@ class Scenario:
             for step in steps:
                 if not step.get("task") or not (isinstance(step.get("script"), list) or step.get("vendor_charge")):
                     raise AgentError(f"{path.name}: every step needs a task and a script or a vendor_charge")
+                if any(i.get("tool") == "propose_payment" for i in step.get("script") or []) and not step.get("order"):
+                    raise AgentError(f"{path.name}: a step with a proposal needs the owner's order")
             provider = data.get("provider", "paypal")
             if provider not in PROVIDER_NAMES:
                 raise AgentError(f"{path.name}: provider must be one of {', '.join(PROVIDER_NAMES)}")
@@ -235,7 +237,9 @@ class StepTools:
             return {"url": page["url"], "text": page["text"]}, False, [
                 {"kind": "read_page", "url": page["url"], "text": page["text"], "highlight": page.get("highlight")}]
         if name == "propose_payment":
-            outcome = self.gateway.submit(args)
+            if not self.step.get("order"):
+                return {"error": "this step has no order, so no amount can be checked"}, True, []
+            outcome = self.gateway.submit(args, self.step["order"])
             seen = outcome.for_agent()
             return seen, False, [{"kind": "proposal", "input": args},
                                  {"kind": "decision", "agent_sees": seen, "outcome": outcome.to_dict()}]
