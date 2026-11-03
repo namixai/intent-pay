@@ -13,7 +13,8 @@ import pytest
 from intent_pay.adapters.http import ReplayTransport
 from intent_pay.adapters.paypal import CardSource, PayPalClient, PayPalConfig, PayPalPayer
 from intent_pay.agent import (DEFAULT_MODEL, FALLBACK_BETA, MAX_TURNS, AgentError, ClaudeAgent, Scenario, ScriptedAgent,
-                              StepTools, fresh_run, make_agent, run_step, sandbox_gateway, system_for, tools_for)
+                              StepTools, fresh_run, make_agent, run_step, sandbox_gateway, step_request_id, system_for,
+                              tools_for)
 from intent_pay.gateway import Gateway
 from intent_pay.intent import Intent
 from intent_pay.ledger import Ledger
@@ -114,6 +115,42 @@ def test_a_step_without_a_request_id_proposes_nothing(scenario, tmp_path):
     step = {k: v for k, v in scenario.step(0, "t").items() if k != "request_id"}
     tools = StepTools(step, sandbox_gateway(scenario, scenario.step(0, "t"), Ledger(tmp_path / "l.jsonl"), False))
     seen, is_error, events = tools.call("propose_payment", {"amount": "49.00"})
+    assert is_error and "no request ID" in seen["error"] and events == []
+
+
+def scenario_with(tmp_path, request_id):
+    """The demo scenario with the first step's request ID replaced."""
+    data = json.loads(SCENARIO.read_text(encoding="utf-8"))
+    data["steps"][0]["request_id"] = request_id
+    path = tmp_path / SCENARIO.name
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("request_id", [123, None, "", "   "])
+def test_a_request_id_that_is_not_text_stops_the_scenario_load(tmp_path, request_id):
+    with pytest.raises(AgentError, match="needs its request_id"):
+        Scenario.load(scenario_with(tmp_path, request_id))
+
+
+def test_a_request_id_with_spaces_is_loaded_trimmed(tmp_path):
+    assert Scenario.load(scenario_with(tmp_path, "  acme-nov-{run} ")).step(0, "t")["request_id"] == "acme-nov-t"
+
+
+def test_the_step_records_and_compares_the_trimmed_request_id(scenario, tmp_path):
+    ledger = Ledger(tmp_path / "l.jsonl")
+    step = scenario.step(0, "t")
+    gateway = sandbox_gateway(scenario, step, ledger, False)
+    proposal = next(i["input"] for i in step["script"] if i.get("tool") == "propose_payment")
+    first, _, _ = StepTools({**step, "request_id": " acme-nov-t  "}, gateway).call("propose_payment", proposal)
+    again, _, _ = StepTools(step, gateway).call("propose_payment", proposal)
+    assert first["decision"] == "allow" and again["reason"] == "duplicate_request_id"
+    assert [r["request_id"] for r in ledger.records() if r["kind"] == "decision"] == ["acme-nov-t"] * 2
+
+
+def test_a_blank_step_request_id_proposes_nothing():
+    assert step_request_id({"request_id": "  "}) is None and step_request_id({"request_id": 7}) is None
+    seen, is_error, events = StepTools({"request_id": "  "}, gateway=None).call("propose_payment", {"amount": "49.00"})
     assert is_error and "no request ID" in seen["error"] and events == []
 
 

@@ -129,6 +129,15 @@ def _fill(value: Any, run: str, marker: str = "{run}") -> Any:
     return value
 
 
+def step_request_id(step: Mapping[str, Any]) -> str | None:
+    """The step's request ID without surrounding spaces, or None when it has none that is text.
+    Trimmed here so the ledger keys one payment by one ID, the same one the duplicate check compares."""
+    value = step.get("request_id")
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()
+
+
 @dataclass(frozen=True)
 class Scenario:
     path: pathlib.Path
@@ -142,12 +151,17 @@ class Scenario:
         path = pathlib.Path(path).resolve()
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            steps = tuple(data["steps"])
-            for step in steps:
+            steps = []
+            for step in data["steps"]:
                 if not step.get("task") or not (isinstance(step.get("script"), list) or step.get("vendor_charge")):
                     raise AgentError(f"{path.name}: every step needs a task and a script or a vendor_charge")
-                if any(i.get("tool") == "propose_payment" for i in step.get("script") or []) and not step.get("request_id"):
-                    raise AgentError(f"{path.name}: a step with a proposal needs its request_id")
+                if "request_id" in step or any(i.get("tool") == "propose_payment" for i in step.get("script") or []):
+                    request_id = step_request_id(step)
+                    if request_id is None:
+                        raise AgentError(f"{path.name}: a step with a proposal needs its request_id, as text that is not blank")
+                    step = {**step, "request_id": request_id}
+                steps.append(step)
+            steps = tuple(steps)
             provider = data.get("provider", "paypal")
             if provider not in PROVIDER_NAMES:
                 raise AgentError(f"{path.name}: provider must be one of {', '.join(PROVIDER_NAMES)}")
@@ -237,8 +251,8 @@ class StepTools:
             return {"url": page["url"], "text": page["text"]}, False, [
                 {"kind": "read_page", "url": page["url"], "text": page["text"], "highlight": page.get("highlight")}]
         if name == "propose_payment":
-            request_id = self.step.get("request_id")
-            if not isinstance(request_id, str) or not request_id:
+            request_id = step_request_id(self.step)
+            if request_id is None:
                 return {"error": "this step has no request ID, so nothing can be proposed"}, True, []
             # The step's request ID replaces any the agent sent: a model cannot pick which ID it pays under.
             proposal = {**args, "request_id": request_id}
