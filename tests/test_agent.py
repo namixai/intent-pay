@@ -137,6 +137,31 @@ def test_a_request_id_with_spaces_is_loaded_trimmed(tmp_path):
     assert Scenario.load(scenario_with(tmp_path, "  acme-nov-{run} ")).step(0, "t")["request_id"] == "acme-nov-t"
 
 
+AIRWALLEX_SCENARIO = ROOT / "scenarios" / "airwallex-demo.json"
+
+
+def vendor_charge_with(tmp_path, **refs):
+    """The Airwallex scenario with its vendor charge's references replaced."""
+    data = json.loads(AIRWALLEX_SCENARIO.read_text(encoding="utf-8"))
+    step = next(s for s in data["steps"] if "vendor_charge" in s)
+    step["vendor_charge"].update(refs)
+    path = tmp_path / AIRWALLEX_SCENARIO.name
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+def test_vendor_charge_references_are_loaded_trimmed(tmp_path):
+    loaded = Scenario.load(vendor_charge_with(tmp_path, card_of=" acme-nov-{run} ", refused_as="acme-dec-{run}  "))
+    charge = next(loaded.step(i, "t") for i in range(len(loaded.steps)) if "vendor_charge" in loaded.steps[i])["vendor_charge"]
+    assert (charge["card_of"], charge["refused_as"]) == ("acme-nov-t", "acme-dec-t")
+
+
+@pytest.mark.parametrize("refs", [{"card_of": 7}, {"card_of": " "}, {"refused_as": None}])
+def test_a_vendor_charge_reference_that_is_not_text_stops_the_load(tmp_path, refs):
+    with pytest.raises(AgentError, match="vendor_charge"):
+        Scenario.load(vendor_charge_with(tmp_path, **refs))
+
+
 def test_the_step_records_and_compares_the_trimmed_request_id(scenario, tmp_path):
     ledger = Ledger(tmp_path / "l.jsonl")
     step = scenario.step(0, "t")

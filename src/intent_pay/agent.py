@@ -129,13 +129,16 @@ def _fill(value: Any, run: str, marker: str = "{run}") -> Any:
     return value
 
 
-def step_request_id(step: Mapping[str, Any]) -> str | None:
-    """The step's request ID without surrounding spaces, or None when it has none that is text.
-    Trimmed here so the ledger keys one payment by one ID, the same one the duplicate check compares."""
-    value = step.get("request_id")
+def trimmed_id(value: Any) -> str | None:
+    """A request ID without surrounding spaces, or None when it is not text or is blank. Trimmed
+    so the ledger keys one payment by one ID, the same one the duplicate check compares."""
     if not isinstance(value, str) or not value.strip():
         return None
     return value.strip()
+
+
+def step_request_id(step: Mapping[str, Any]) -> str | None:
+    return trimmed_id(step.get("request_id"))
 
 
 @dataclass(frozen=True)
@@ -160,6 +163,16 @@ class Scenario:
                     if request_id is None:
                         raise AgentError(f"{path.name}: a step with a proposal needs its request_id, as text that is not blank")
                     step = {**step, "request_id": request_id}
+                charge = step.get("vendor_charge")
+                if isinstance(charge, dict):
+                    # The vendor names its payment by request ID too, so it is read the same way.
+                    for key in ("card_of", "refused_as"):
+                        if key in charge:
+                            ref = trimmed_id(charge[key])
+                            if ref is None:
+                                raise AgentError(f"{path.name}: vendor_charge {key} must be a request ID, as text that is not blank")
+                            charge = {**charge, key: ref}
+                    step = {**step, "vendor_charge": charge}
                 steps.append(step)
             steps = tuple(steps)
             provider = data.get("provider", "paypal")
