@@ -75,7 +75,11 @@ class Order:
     @classmethod
     def parse(cls, value: Any) -> Order:
         if isinstance(value, Order):
-            return value
+            # A ready Order meets the same rules as one read from a mapping: Order(-49.00, -1, "USD")
+            # works out to 49.00 as well, and must still be refused.
+            price = value.unit_price
+            value = {"unit_price": format(price, "f") if isinstance(price, Decimal) else price,
+                     "quantity": value.quantity, "currency": value.currency}
         if not isinstance(value, Mapping) or set(value) != {"unit_price", "quantity", "currency"}:
             raise ValueError("an order is exactly unit_price, quantity and currency")
         currency, quantity = value["currency"], value["quantity"]
@@ -215,11 +219,11 @@ class Engine:
         """Never raises: whatever goes wrong comes back as a refusal. With an `order`, the amount
         must be the one the engine works out from it (amount_mismatch otherwise)."""
         try:
-            return self._decide(proposal, None if order is None else Order.parse(order))
+            return self._decide(proposal, order)
         except Exception as exc:  # fail-closed: nothing that breaks may read as an allow
             return self._unrecorded(utc_now(), Reason.POLICY_ERROR, f"{type(exc).__name__}: {exc}", None, None)
 
-    def _decide(self, proposal: Any, order: Order | None) -> Receipt:
+    def _decide(self, proposal: Any, order: Any) -> Receipt:
         try:
             now = self.clock()
             if not isinstance(now, datetime) or now.tzinfo is None:
@@ -247,11 +251,15 @@ class Engine:
             return self._unrecorded(now, Reason.LEDGER_UNAVAILABLE, str(exc), intent.request_id, intent.to_dict())
 
     def _evaluate(self, intent: Intent, state: LedgerState, now: datetime,
-                  order: Order | None = None) -> tuple[Reason, str]:
+                  order: Any = None) -> tuple[Reason, str]:
         cur = intent.currency
         if intent.request_id in state.request_ids:
             return Reason.DUPLICATE_REQUEST_ID, (
                 f"request ID {intent.request_id} was already decided (receipt #{state.request_ids[intent.request_id]})")
+
+        # Read inside the ledger session: a broken order raises here and is recorded as policy_error
+        # under the proposal's request ID, so a retry with that ID is a duplicate.
+        order = None if order is None else Order.parse(order)
 
         rule = self.policy.currencies.get(cur)
         if rule is None:

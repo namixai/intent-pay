@@ -10,7 +10,7 @@ import pytest
 
 from conftest import NOON, POLICY, intent
 from intent_pay.ledger import Ledger
-from intent_pay.policy import Engine, Policy, Reason
+from intent_pay.policy import Engine, Order, Policy, Reason
 
 
 def refused(receipt, reason):
@@ -55,6 +55,23 @@ def test_an_amount_over_a_limit_is_refused_for_the_limit_first(engine):
                                    "49.00"])
 def test_a_broken_order_refuses(engine, order):
     refused(engine.decide(intent(), order), Reason.POLICY_ERROR)
+
+
+@pytest.mark.parametrize("order", [Order(Decimal("-49.00"), -1, "USD"), Order(Decimal("49.00"), True, "USD"),
+                                   Order(Decimal("49.00"), 1, "usd"), Order(Decimal("49.004"), 1, "USD")])
+def test_a_ready_order_meets_the_same_rules(engine, order):
+    refused(engine.decide(intent(amount="49.00"), order), Reason.POLICY_ERROR)
+
+
+def test_a_valid_ready_order_is_used_as_given(engine):
+    assert engine.decide(intent(amount="49.00"), Order(Decimal("24.50"), 2, "USD")).allowed
+
+
+def test_a_broken_order_is_recorded_under_the_request_id(engine, ledger):
+    r = refused(engine.decide(intent(), {"unit_price": "49.00", "quantity": 0, "currency": "USD"}),
+                Reason.POLICY_ERROR)
+    assert r.recorded and r.request_id == intent()["request_id"] and ledger.verify() == 1
+    refused(engine.decide(intent(), ORDER), Reason.DUPLICATE_REQUEST_ID)
 
 
 def test_amount_equal_to_per_payment_limit_is_allowed(engine):
