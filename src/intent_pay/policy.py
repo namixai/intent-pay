@@ -68,6 +68,8 @@ class CurrencyRule:
     per_payment: Decimal
     daily: Decimal
     min_balance: Decimal | None = None
+    # An allowed payment above this waits for a person (Gateway.approve) instead of being paid.
+    approve_above: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -111,7 +113,9 @@ class Policy:
         return {
             "currencies": {
                 code: {"per_payment": str(r.per_payment), "daily": str(r.daily),
-                       "min_balance": None if r.min_balance is None else str(r.min_balance)}
+                       "min_balance": None if r.min_balance is None else str(r.min_balance),
+                       # Only when set, so a policy without it keeps the hash it always had.
+                       **({} if r.approve_above is None else {"approve_above": str(r.approve_above)})}
                 for code, r in sorted(self.currencies.items())
             },
             "payees": None if self.payees is None else sorted(self.payees),
@@ -139,7 +143,7 @@ def _currency_rule(code: Any, rule: Any) -> CurrencyRule:
         raise PolicyError(f"currency {code!r} must be a three-letter upper-case ISO 4217 code")
     if not isinstance(rule, Mapping):
         raise PolicyError(f"currencies.{code} must be a table")
-    unknown = sorted(set(rule) - {"per_payment", "daily", "min_balance"})
+    unknown = sorted(set(rule) - {"per_payment", "daily", "min_balance", "approve_above"})
     if unknown:
         raise PolicyError(f"unknown key(s) in currencies.{code}: {', '.join(unknown)}")
     per_payment = _money(code, rule, "per_payment")
@@ -150,7 +154,10 @@ def _currency_rule(code: Any, rule: Any) -> CurrencyRule:
     if rule.get("min_balance") is not None:
         # Zero is a meaningful reserve ("never overdraw"), so it is allowed here.
         min_balance = _money(code, rule, "min_balance", allow_zero=True)
-    return CurrencyRule(per_payment=per_payment, daily=daily, min_balance=min_balance)
+    approve_above = None
+    if rule.get("approve_above") is not None:
+        approve_above = _money(code, rule, "approve_above", allow_zero=True)
+    return CurrencyRule(per_payment=per_payment, daily=daily, min_balance=min_balance, approve_above=approve_above)
 
 
 def _string_set(data: Mapping[str, Any], key: str) -> frozenset[str] | None:

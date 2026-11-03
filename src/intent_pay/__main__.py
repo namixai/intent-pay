@@ -71,6 +71,11 @@ def cmd_refund(args: argparse.Namespace) -> dict[str, Any]:
     return outcome.to_dict()
 
 
+def cmd_approve(args: argparse.Namespace) -> dict[str, Any]:
+    outcome = build_gateway(args).approve(args.receipt, args.by)
+    return outcome.to_dict()
+
+
 def cmd_verify(args: argparse.Namespace) -> dict[str, Any]:
     count = Ledger(args.ledger).verify()
     return {"ledger": str(args.ledger), "records": count, "chain": "ok"}
@@ -83,7 +88,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     for name, help_text in (("pay", "decide one intent and, if allowed, pay it in the PayPal sandbox"),
-                            ("refund", "refund the payment made for an allowed receipt")):
+                            ("refund", "refund the payment made for an allowed receipt"),
+                            ("approve", "approve a payment held above the policy's approve_above, then pay it")):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--policy", required=True)
         mode = p.add_mutually_exclusive_group()
@@ -93,13 +99,15 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--intent", required=True, help="JSON file with the agent's proposal, or - for stdin")
         else:
             p.add_argument("--receipt", type=int, required=True, help="number of the allowed decision receipt")
+        if name == "approve":
+            p.add_argument("--by", required=True, help="name of the person who approves")
     sub.add_parser("verify", help="check the ledger's hash chain")
 
     args = parser.parse_args(argv)
     load_env_file(pathlib.Path(args.env))
     args.ledger = args.ledger or os.environ.get("INTENT_PAY_LEDGER") or DEFAULT_LEDGER
     try:
-        result = {"pay": cmd_pay, "refund": cmd_refund, "verify": cmd_verify}[args.command](args)
+        result = {"pay": cmd_pay, "refund": cmd_refund, "approve": cmd_approve, "verify": cmd_verify}[args.command](args)
     except (ConfigError, PolicyError, GatewayError, LedgerError, OSError, json.JSONDecodeError) as exc:
         print(json.dumps({"error": type(exc).__name__, "detail": str(exc)}, indent=2))
         return 2

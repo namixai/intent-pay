@@ -18,7 +18,8 @@ from datetime import datetime
 from typing import Any, Callable, Protocol
 
 from intent_pay.intent import Intent, parse_money
-from intent_pay.ledger import ALLOW, DECISION, FORCED_CHARGE, Execution, Ledger, LedgerError, Receipt
+from intent_pay.ledger import (ALLOW, APPROVAL, AWAIT_APPROVAL, DECISION, FORCED_CHARGE, Execution, Ledger,
+                               LedgerError, Receipt)
 from intent_pay.policy import Engine, utc_now
 
 
@@ -98,8 +99,44 @@ class Gateway:
         if not receipt.allowed:
             return Outcome(receipt)
         intent = Intent.parse(receipt.intent)
+        threshold = self.engine.policy.currencies[intent.currency].approve_above
+        if threshold is not None and intent.amount > threshold:
+            # Within the limits but above what the owner lets run alone: hold it for a person.
+            held = PaymentResult(provider=self.payer.provider, operation=AWAIT_APPROVAL, ok=False,
+                                 status="AWAITING_APPROVAL", reference=None,
+                                 detail=(f"{intent.amount} {intent.currency} is above the approval threshold of "
+                                         f"{threshold} {intent.currency}; nothing is paid until a person approves "
+                                         f"receipt #{receipt.seq}"))
+            return self._record(receipt, receipt.seq, held)
         result = self._call(lambda: self.payer.pay(intent, receipt), "pay")
         return self._record(receipt, receipt.seq, result)
+
+    def approve(self, decision_seq: int, by: str) -> Outcome:
+        """A person's yes to a held payment, then the payment. Only a payment the gateway held can
+        be approved, and only once. The agent has no tool that reaches this."""
+        if not isinstance(by, str) or not by.strip():
+            raise GatewayError("an approval needs the name of the person who gives it")
+        with self.ledger.session() as state:
+            decision = state.record(decision_seq)
+            if decision is None or decision["kind"] != DECISION or decision["decision"] != ALLOW:
+                raise GatewayError(f"receipt #{decision_seq} is not an allowed decision")
+            done = [e["operation"] for e in state.executions.get(decision_seq, [])]
+            if AWAIT_APPROVAL not in done:
+                raise GatewayError(f"receipt #{decision_seq} is not waiting for approval")
+            if APPROVAL in done or "pay" in done:
+                raise GatewayError(f"receipt #{decision_seq} was already approved")
+            execution = self.ledger.append_execution(
+                state, decision_seq=decision_seq, provider="person", operation=APPROVAL, ok=True,
+                status="APPROVED", reference=None, detail=f"approved by {by.strip()}", steps=(), at=self.clock())
+        receipt = Receipt(decision=decision["decision"], reason=decision["reason"], detail=decision["detail"],
+                          request_id=decision["request_id"], intent=decision["intent"],
+                          policy_hash=decision["policy_hash"], at=decision["at"], seq=decision["seq"],
+                          prev=decision["prev"], hash=decision["hash"])
+        intent = Intent.parse(receipt.intent)
+        result = self._call(lambda: self.payer.pay(intent, receipt), "pay")
+        outcome = self._record(receipt, decision_seq, result)
+        return Outcome(outcome.receipt, outcome.payment, outcome.execution,
+                       note=f"approval recorded as #{execution.seq}" + (f"; {outcome.note}" if outcome.note else ""))
 
     def refund(self, decision_seq: int) -> Outcome:
         """Refund the payment made for an allowed decision. Refunds give money back, so they do
