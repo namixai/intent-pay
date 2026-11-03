@@ -38,6 +38,12 @@ def test_refuse_malformed_intent(engine, ledger):
     assert r.recorded and ledger.verify() == 1
 
 
+def test_a_request_id_with_a_line_separator_does_not_break_the_ledger(engine, ledger):
+    refused(engine.decide(intent(request_id="a\u2028b\u0085c")), Reason.MALFORMED_INTENT)
+    assert ledger.verify() == 1 and ledger.records()[0]["request_id"] == "a\u2028b\u0085c"
+    assert engine.decide(intent()).allowed
+
+
 def test_refuse_malformed_burns_its_request_id(engine):
     refused(engine.decide(intent(amount="-1")), Reason.MALFORMED_INTENT)
     refused(engine.decide(intent()), Reason.DUPLICATE_REQUEST_ID)

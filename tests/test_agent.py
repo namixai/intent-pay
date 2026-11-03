@@ -13,7 +13,8 @@ import pytest
 from intent_pay.adapters.http import ReplayTransport
 from intent_pay.adapters.paypal import CardSource, PayPalClient, PayPalConfig, PayPalPayer
 from intent_pay.agent import (DEFAULT_MODEL, FALLBACK_BETA, MAX_TURNS, AgentError, ClaudeAgent, Scenario, ScriptedAgent,
-                              StepTools, fresh_run, make_agent, run_step, system_for, tools_for)
+                              StepTools, fresh_run, make_agent, run_step, sandbox_gateway, step_request_id, system_for,
+                              tools_for)
 from intent_pay.gateway import Gateway
 from intent_pay.intent import Intent
 from intent_pay.ledger import Ledger
@@ -74,7 +75,8 @@ def test_events_carry_no_key_or_card(scenario, tmp_path):
 def test_run_tag_goes_into_every_request_id(scenario):
     step = scenario.step(0, "x1")
     assert "acme-nov-x1" in step["task"]
-    assert [i["input"]["request_id"] for i in step["script"] if i.get("tool") == "propose_payment"] == ["acme-nov-x1"]
+    assert step["request_id"] == "acme-nov-x1"
+    assert all("request_id" not in i.get("input", {}) for i in step["script"])
     assert "{run}" not in json.dumps(scenario.step(3, "x1"))
 
 
@@ -93,9 +95,93 @@ def test_every_scripted_proposal_is_a_valid_intent_and_every_replay_exists(scena
         assert scenario.resolve(step["replay"]).is_file()
         for item in step["script"]:
             if item.get("tool") == "propose_payment":
-                Intent.parse(item["input"])
+                Intent.parse({**item["input"], "request_id": step["request_id"]})
             if item.get("tool") == "read_page":
                 assert item["input"]["url"] == step["page"]["url"]
+
+
+def test_the_agent_cannot_pick_the_request_id(scenario, tmp_path):
+    ledger = Ledger(tmp_path / "l.jsonl")
+    step = scenario.step(0, "t")
+    tools = StepTools(step, sandbox_gateway(scenario, step, ledger, False))
+    proposal = next(i["input"] for i in step["script"] if i.get("tool") == "propose_payment")
+    seen, is_error, events = tools.call("propose_payment", {**proposal, "request_id": "attacker-chosen"})
+    assert not is_error and seen["decision"] == "allow"
+    assert events[0]["input"]["request_id"] == "acme-nov-t"
+    assert [r["request_id"] for r in ledger.records() if r["kind"] == "decision"] == ["acme-nov-t"]
+
+
+def test_a_step_without_a_request_id_proposes_nothing(scenario, tmp_path):
+    step = {k: v for k, v in scenario.step(0, "t").items() if k != "request_id"}
+    tools = StepTools(step, sandbox_gateway(scenario, scenario.step(0, "t"), Ledger(tmp_path / "l.jsonl"), False))
+    seen, is_error, events = tools.call("propose_payment", {"amount": "49.00"})
+    assert is_error and "no request ID" in seen["error"] and events == []
+
+
+def scenario_with(tmp_path, request_id):
+    """The demo scenario with the first step's request ID replaced."""
+    data = json.loads(SCENARIO.read_text(encoding="utf-8"))
+    data["steps"][0]["request_id"] = request_id
+    path = tmp_path / SCENARIO.name
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("request_id", [123, None, "", "   "])
+def test_a_request_id_that_is_not_text_stops_the_scenario_load(tmp_path, request_id):
+    with pytest.raises(AgentError, match="needs its request_id"):
+        Scenario.load(scenario_with(tmp_path, request_id))
+
+
+def test_a_request_id_with_spaces_is_loaded_trimmed(tmp_path):
+    assert Scenario.load(scenario_with(tmp_path, "  acme-nov-{run} ")).step(0, "t")["request_id"] == "acme-nov-t"
+
+
+AIRWALLEX_SCENARIO = ROOT / "scenarios" / "airwallex-demo.json"
+
+
+def vendor_charge_with(tmp_path, **refs):
+    """The Airwallex scenario with its vendor charge's references replaced."""
+    data = json.loads(AIRWALLEX_SCENARIO.read_text(encoding="utf-8"))
+    step = next(s for s in data["steps"] if "vendor_charge" in s)
+    step["vendor_charge"].update(refs)
+    path = tmp_path / AIRWALLEX_SCENARIO.name
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+def test_vendor_charge_references_are_loaded_trimmed(tmp_path):
+    loaded = Scenario.load(vendor_charge_with(tmp_path, card_of=" acme-nov-{run} ", refused_as="acme-dec-{run}  "))
+    charge = next(loaded.step(i, "t") for i in range(len(loaded.steps)) if "vendor_charge" in loaded.steps[i])["vendor_charge"]
+    assert (charge["card_of"], charge["refused_as"]) == ("acme-nov-t", "acme-dec-t")
+
+
+@pytest.mark.parametrize("refs", [{"card_of": 7}, {"card_of": " "}, {"refused_as": None}])
+def test_a_vendor_charge_reference_that_is_not_text_stops_the_load(tmp_path, refs):
+    with pytest.raises(AgentError, match="vendor_charge"):
+        Scenario.load(vendor_charge_with(tmp_path, **refs))
+
+
+def test_the_step_records_and_compares_the_trimmed_request_id(scenario, tmp_path):
+    ledger = Ledger(tmp_path / "l.jsonl")
+    step = scenario.step(0, "t")
+    gateway = sandbox_gateway(scenario, step, ledger, False)
+    proposal = next(i["input"] for i in step["script"] if i.get("tool") == "propose_payment")
+    first, _, _ = StepTools({**step, "request_id": " acme-nov-t  "}, gateway).call("propose_payment", proposal)
+    again, _, _ = StepTools(step, gateway).call("propose_payment", proposal)
+    assert first["decision"] == "allow" and again["reason"] == "duplicate_request_id"
+    assert [r["request_id"] for r in ledger.records() if r["kind"] == "decision"] == ["acme-nov-t"] * 2
+
+
+def test_a_blank_step_request_id_proposes_nothing():
+    assert step_request_id({"request_id": "  "}) is None and step_request_id({"request_id": 7}) is None
+    seen, is_error, events = StepTools({"request_id": "  "}, gateway=None).call("propose_payment", {"amount": "49.00"})
+    assert is_error and "no request ID" in seen["error"] and events == []
+
+
+def test_the_claude_tool_has_no_request_id_field():
+    schema = next(t for t in tools_for("paypal") if t["name"] == "propose_payment")["input_schema"]
+    assert "request_id" not in schema["properties"] and "request_id" not in schema["required"]
 
 
 def test_read_page_answers_only_the_step_page(scenario, tmp_path):

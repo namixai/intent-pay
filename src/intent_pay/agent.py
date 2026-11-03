@@ -3,7 +3,8 @@
 An agent gets two tools. `read_page` returns a page from the scenario file, and
 `propose_payment` hands one intent to the gateway and returns `Outcome.for_agent()`: the
 decision, the rule behind it and what the sandbox said. Nothing the agent can call reaches a
-key, the card or the policy file.
+key, the card or the policy file. The request ID is not the agent's to choose: it comes from
+the scenario step, and `propose_payment` sets it on every proposal.
 
 There are two agents. The scripted agent (the default) follows the tool calls written in the
 scenario file, so the demo runs the same way every time and needs no model key. With
@@ -52,7 +53,7 @@ You can read vendor pages and propose payments. You never see the card or any ke
 gateway checks each proposal against the owner's policy and pays only what the policy allows.
 Its answer tells you the decision, the rule behind it and what {provider} said.
 
-Propose at most one payment per task, with the request ID the task gives you. Copy the amount
+Propose at most one payment per task; the gateway sets its request ID. Copy the amount
 and the merchant category from the vendor page. When a payment is refused or fails, say why in
 one or two sentences and stop; the owner decides what happens next."""
 
@@ -76,14 +77,13 @@ _TOOLS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "request_id": {"type": "string", "description": "The request ID from the task."},
                 "amount": {"type": "string", "description": "Decimal amount as a string, for example \"49.00\"."},
                 "currency": {"type": "string", "description": "Three-letter ISO 4217 code, for example USD."},
                 "merchant_category": {"type": "string", "description": "Four-digit merchant category code."},
                 "purpose": {"type": "string", "description": "What the payment is for, in a few words."},
                 "billing": {"type": "string", "enum": ["one_time", "monthly", "annual"]},
             },
-            "required": ["request_id", "amount", "currency", "merchant_category", "purpose", "billing"],
+            "required": ["amount", "currency", "merchant_category", "purpose", "billing"],
             "additionalProperties": False,
         },
     },
@@ -129,6 +129,18 @@ def _fill(value: Any, run: str, marker: str = "{run}") -> Any:
     return value
 
 
+def trimmed_id(value: Any) -> str | None:
+    """A request ID without surrounding spaces, or None when it is not text or is blank. Trimmed
+    so the ledger keys one payment by one ID, the same one the duplicate check compares."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()
+
+
+def step_request_id(step: Mapping[str, Any]) -> str | None:
+    return trimmed_id(step.get("request_id"))
+
+
 @dataclass(frozen=True)
 class Scenario:
     path: pathlib.Path
@@ -142,10 +154,27 @@ class Scenario:
         path = pathlib.Path(path).resolve()
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            steps = tuple(data["steps"])
-            for step in steps:
+            steps = []
+            for step in data["steps"]:
                 if not step.get("task") or not (isinstance(step.get("script"), list) or step.get("vendor_charge")):
                     raise AgentError(f"{path.name}: every step needs a task and a script or a vendor_charge")
+                if "request_id" in step or any(i.get("tool") == "propose_payment" for i in step.get("script") or []):
+                    request_id = step_request_id(step)
+                    if request_id is None:
+                        raise AgentError(f"{path.name}: a step with a proposal needs its request_id, as text that is not blank")
+                    step = {**step, "request_id": request_id}
+                charge = step.get("vendor_charge")
+                if isinstance(charge, dict):
+                    # The vendor names its payment by request ID too, so it is read the same way.
+                    for key in ("card_of", "refused_as"):
+                        if key in charge:
+                            ref = trimmed_id(charge[key])
+                            if ref is None:
+                                raise AgentError(f"{path.name}: vendor_charge {key} must be a request ID, as text that is not blank")
+                            charge = {**charge, key: ref}
+                    step = {**step, "vendor_charge": charge}
+                steps.append(step)
+            steps = tuple(steps)
             provider = data.get("provider", "paypal")
             if provider not in PROVIDER_NAMES:
                 raise AgentError(f"{path.name}: provider must be one of {', '.join(PROVIDER_NAMES)}")
@@ -235,9 +264,14 @@ class StepTools:
             return {"url": page["url"], "text": page["text"]}, False, [
                 {"kind": "read_page", "url": page["url"], "text": page["text"], "highlight": page.get("highlight")}]
         if name == "propose_payment":
-            outcome = self.gateway.submit(args)
+            request_id = step_request_id(self.step)
+            if request_id is None:
+                return {"error": "this step has no request ID, so nothing can be proposed"}, True, []
+            # The step's request ID replaces any the agent sent: a model cannot pick which ID it pays under.
+            proposal = {**args, "request_id": request_id}
+            outcome = self.gateway.submit(proposal)
             seen = outcome.for_agent()
-            return seen, False, [{"kind": "proposal", "input": args},
+            return seen, False, [{"kind": "proposal", "input": proposal},
                                  {"kind": "decision", "agent_sees": seen, "outcome": outcome.to_dict()}]
         return {"error": f"unknown tool {name!r}"}, True, []
 
