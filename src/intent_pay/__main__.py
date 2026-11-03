@@ -4,6 +4,7 @@
     python -m intent_pay pay ... --replay tests/fixtures/paypal/pay-completed.json   # no network, no keys
     python -m intent_pay pay ... --record state/cassettes/pay.json                   # live, saves a redacted copy
     python -m intent_pay refund --policy policies/paypal-sandbox.toml --receipt 1
+    python -m intent_pay approve --policy policies/paypal-sandbox.toml --receipt 1 --by NAME  # a held payment
     python -m intent_pay verify
 
 Keys come from the environment, or from a .env file next to where you run it (`--env`). The
@@ -19,9 +20,10 @@ import pathlib
 import sys
 from typing import Any
 
+from intent_pay.adapters import airwallex
 from intent_pay.adapters.http import RecordingTransport, ReplayTransport, UrllibTransport
 from intent_pay.adapters.paypal import CardSource, ConfigError, PayPalClient, PayPalConfig, PayPalPayer
-from intent_pay.gateway import Gateway, GatewayError
+from intent_pay.gateway import Gateway, GatewayError, held_by
 from intent_pay.ledger import Ledger, LedgerError
 from intent_pay.policy import Engine, Policy, PolicyError
 
@@ -42,19 +44,28 @@ def load_env_file(path: pathlib.Path) -> None:
             os.environ[key] = value
 
 
-def build_gateway(args: argparse.Namespace) -> Gateway:
+def transport_for(args: argparse.Namespace, base_url: str) -> Any:
+    if args.replay:
+        return ReplayTransport(args.replay)
+    if args.record:
+        return RecordingTransport(UrllibTransport(), args.record, source=f"recorded from {base_url}")
+    return UrllibTransport()
+
+
+def build_gateway(args: argparse.Namespace, provider: str = "paypal") -> Gateway:
     policy = Policy.load(args.policy)
     ledger = Ledger(args.ledger)
+    # With a cassette answering every call, the keys are stand-ins that never leave this process.
+    if provider == "airwallex":
+        aw_config = airwallex.AirwallexConfig("replay", "replay") if args.replay else airwallex.AirwallexConfig.from_env()
+        aw_payer = airwallex.AirwallexPayer(airwallex.AirwallexClient(aw_config, transport_for(args, aw_config.base_url)),
+                                            policy)
+        return Gateway(Engine(policy, ledger, balance=aw_payer.available_balance), aw_payer)
     if args.replay:
-        # A cassette answers every call, so the keys are stand-ins that never leave this process.
         config = PayPalConfig(client_id="replay", client_secret="replay", card=CardSource(vault_id="replay"))
-        transport: Any = ReplayTransport(args.replay)
     else:
         config = PayPalConfig.from_env()
-        transport = UrllibTransport()
-        if args.record:
-            transport = RecordingTransport(transport, args.record, source=f"recorded from {config.base_url}")
-    payer = PayPalPayer(PayPalClient(config, transport))
+    payer = PayPalPayer(PayPalClient(config, transport_for(args, config.base_url)))
     # PayPal has no balance call in this build, so a policy with min_balance refuses (balance_unavailable).
     return Gateway(Engine(policy, ledger), payer)
 
@@ -72,7 +83,8 @@ def cmd_refund(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_approve(args: argparse.Namespace) -> dict[str, Any]:
-    outcome = build_gateway(args).approve(args.receipt, args.by)
+    # The payment goes to the provider that held it, PayPal or Airwallex, whichever the agent used.
+    outcome = build_gateway(args, held_by(Ledger(args.ledger), args.receipt)).approve(args.receipt, args.by)
     return outcome.to_dict()
 
 
@@ -89,7 +101,8 @@ def main(argv: list[str] | None = None) -> int:
 
     for name, help_text in (("pay", "decide one intent and, if allowed, pay it in the PayPal sandbox"),
                             ("refund", "refund the payment made for an allowed receipt"),
-                            ("approve", "approve a payment held above the policy's approve_above, then pay it")):
+                            ("approve", "approve a payment held above the policy's approve_above, then pay it "
+                                        "with the provider that held it; run again to finish one that did not go through")):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--policy", required=True)
         mode = p.add_mutually_exclusive_group()
@@ -108,7 +121,8 @@ def main(argv: list[str] | None = None) -> int:
     args.ledger = args.ledger or os.environ.get("INTENT_PAY_LEDGER") or DEFAULT_LEDGER
     try:
         result = {"pay": cmd_pay, "refund": cmd_refund, "approve": cmd_approve, "verify": cmd_verify}[args.command](args)
-    except (ConfigError, PolicyError, GatewayError, LedgerError, OSError, json.JSONDecodeError) as exc:
+    except (ConfigError, airwallex.ConfigError, PolicyError, GatewayError, LedgerError, OSError,
+            json.JSONDecodeError) as exc:
         print(json.dumps({"error": type(exc).__name__, "detail": str(exc)}, indent=2))
         return 2
     print(json.dumps(result, indent=2, ensure_ascii=False))

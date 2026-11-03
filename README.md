@@ -76,7 +76,7 @@ The rules run in this order, and the first one that fails is the reason on the r
 
 When something breaks, the engine refuses. A ledger that cannot be read, does not verify or cannot be written gives `ledger_unavailable`, a rule that raises an error gives `policy_error`, and a balance that cannot be read gives `balance_unavailable`. No payment is allowed before its receipt is on disk.
 
-A currency table can also set `approve_above`. An allowed payment above it is not paid: the gateway writes it to the ledger as awaiting approval, and it is paid only after a person runs `python -m intent_pay approve --policy <file> --receipt <n> --by <name>`. The agent has no tool for that. Payments within the threshold run without approval, and the demo policies set no threshold.
+A currency table can also set `approve_above`. An allowed payment above it is not paid: the gateway writes it to the ledger as awaiting approval, and it is paid only after a person runs `python -m intent_pay approve --policy <file> --receipt <n> --by <name>`. The agent has no tool for that. The command pays with the provider that held the payment, and if that payment fails or the process stops before it, running the command again pays it; after one payment of the receipt goes through, nothing more is paid. Payments within the threshold run without approval, and the demo policies set no threshold.
 
 Limits are per currency, so no rule depends on an exchange rate. A restart does not reset the day either: on every decision the engine reads what was already allowed back from the ledger.
 

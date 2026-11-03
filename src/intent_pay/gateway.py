@@ -55,6 +55,15 @@ class GatewayError(Exception):
     """A request the gateway will not pass to the sandbox (for example, a refund of nothing)."""
 
 
+def held_by(ledger: Ledger, decision_seq: int) -> str:
+    """The provider whose payment for this receipt waits for approval, as the hold recorded it."""
+    with ledger.session() as state:
+        holds = [e for e in state.executions.get(decision_seq, []) if e["operation"] == AWAIT_APPROVAL]
+    if not holds:
+        raise GatewayError(f"receipt #{decision_seq} is not waiting for approval")
+    return holds[-1]["provider"]
+
+
 @dataclass(frozen=True)
 class Outcome:
     receipt: Receipt | None
@@ -112,22 +121,36 @@ class Gateway:
         return self._record(receipt, receipt.seq, result)
 
     def approve(self, decision_seq: int, by: str) -> Outcome:
-        """A person's yes to a held payment, then the payment. Only a payment the gateway held can
-        be approved, and only once. The agent has no tool that reaches this."""
+        """A person's yes to a held payment, then the payment. Only a payment this gateway's provider
+        held can be approved, and the yes is recorded once. If the payment then did not go through,
+        or the process stopped before making it, the same call pays it; once a payment of the
+        receipt went through, nothing more is paid. A retry carries the receipt's request ID, so
+        the provider's own idempotency answers a payment it made but the ledger did not record.
+        The agent has no tool that reaches this."""
         if not isinstance(by, str) or not by.strip():
             raise GatewayError("an approval needs the name of the person who gives it")
         with self.ledger.session() as state:
             decision = state.record(decision_seq)
             if decision is None or decision["kind"] != DECISION or decision["decision"] != ALLOW:
                 raise GatewayError(f"receipt #{decision_seq} is not an allowed decision")
-            done = [e["operation"] for e in state.executions.get(decision_seq, [])]
-            if AWAIT_APPROVAL not in done:
+            done = state.executions.get(decision_seq, [])
+            holds = [e for e in done if e["operation"] == AWAIT_APPROVAL]
+            if not holds:
                 raise GatewayError(f"receipt #{decision_seq} is not waiting for approval")
-            if APPROVAL in done or "pay" in done:
-                raise GatewayError(f"receipt #{decision_seq} was already approved")
-            execution = self.ledger.append_execution(
-                state, decision_seq=decision_seq, provider="person", operation=APPROVAL, ok=True,
-                status="APPROVED", reference=None, detail=f"approved by {by.strip()}", steps=(), at=self.clock())
+            if holds[-1]["provider"] != self.payer.provider:
+                raise GatewayError(f"receipt #{decision_seq} is held for {holds[-1]['provider']}, "
+                                   f"not for {self.payer.provider}")
+            if _paid(done):
+                raise GatewayError(f"receipt #{decision_seq} was already approved and paid")
+            approvals = [e for e in done if e["operation"] == APPROVAL]
+            if approvals:
+                note = f"approved earlier as #{approvals[0]['seq']}; this call completes the payment"
+            else:
+                execution = self.ledger.append_execution(
+                    state, decision_seq=decision_seq, provider="person", operation=APPROVAL, ok=True,
+                    status="APPROVED", reference=None, detail=f"approved by {by.strip()}", steps=(),
+                    at=self.clock())
+                note = f"approval recorded as #{execution.seq}"
         receipt = Receipt(decision=decision["decision"], reason=decision["reason"], detail=decision["detail"],
                           request_id=decision["request_id"], intent=decision["intent"],
                           policy_hash=decision["policy_hash"], at=decision["at"], seq=decision["seq"],
@@ -136,7 +159,7 @@ class Gateway:
         result = self._call(lambda: self.payer.pay(intent, receipt), "pay")
         outcome = self._record(receipt, decision_seq, result)
         return Outcome(outcome.receipt, outcome.payment, outcome.execution,
-                       note=f"approval recorded as #{execution.seq}" + (f"; {outcome.note}" if outcome.note else ""))
+                       note=note + (f"; {outcome.note}" if outcome.note else ""))
 
     def refund(self, decision_seq: int) -> Outcome:
         """Refund the payment made for an allowed decision. Refunds give money back, so they do
