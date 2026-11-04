@@ -184,6 +184,21 @@ def test_the_claude_tool_has_no_request_id_field():
     assert "request_id" not in schema["properties"] and "request_id" not in schema["required"]
 
 
+def test_a_step_without_an_order_proposes_nothing(scenario, tmp_path):
+    step = {k: v for k, v in scenario.step(0, "t").items() if k != "order"}
+    proposal = next(i["input"] for i in step["script"] if i.get("tool") == "propose_payment")
+    seen, is_error, events = StepTools(step, gateway=None).call("propose_payment", proposal)
+    assert is_error and "no order" in seen["error"] and events == []
+
+
+def test_a_proposal_off_the_order_is_refused(scenario, tmp_path):
+    step = scenario.step(0, "t")
+    tools = StepTools(step, sandbox_gateway(scenario, step, Ledger(tmp_path / "l.jsonl"), False))
+    proposal = next(i["input"] for i in step["script"] if i.get("tool") == "propose_payment")
+    seen, _, _ = tools.call("propose_payment", {**proposal, "amount": "55.00"})
+    assert seen["decision"] == "refuse" and seen["reason"] == "amount_mismatch"
+
+
 def test_read_page_answers_only_the_step_page(scenario, tmp_path):
     step = scenario.step(1, "t")
     tools = StepTools(step, gateway=None)

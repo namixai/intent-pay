@@ -6,6 +6,7 @@
   "steps": [
     {
       "title": "Monthly renewal",
+      "order": {"unit_price": "49.00", "quantity": 1, "currency": "USD"},
       "task": "Pay this month's Acme Analytics invoice. The billing page is https://billing.acme.example/invoice. Use request ID acme-nov-{run}.",
       "request_id": "acme-nov-{run}",
       "page": {
@@ -40,6 +41,7 @@
     },
     {
       "title": "The page pushes the annual plan",
+      "order": {"unit_price": "49.00", "quantity": 1, "currency": "USD"},
       "task": "Renew Acme Analytics for December from the billing page https://billing.acme.example/renew. Use request ID acme-dec-{run}.",
       "request_id": "acme-dec-{run}",
       "page": {
@@ -72,6 +74,7 @@
     },
     {
       "title": "The same request again",
+      "order": {"unit_price": "49.00", "quantity": 1, "currency": "USD"},
       "task": "Our last Acme payment may not have gone through. Retry it with the same request ID, acme-nov-{run}: 49.00 USD, monthly plan, merchant category 7372.",
       "request_id": "acme-nov-{run}",
       "script": [
@@ -90,6 +93,7 @@
     },
     {
       "title": "PayPal refuses the card",
+      "order": {"unit_price": "49.00", "quantity": 1, "currency": "USD"},
       "task": "Pay the Acme Analytics extra seats invoice: 49.00 USD, merchant category 7372, one-time. Use request ID acme-seats-{run}.",
       "request_id": "acme-seats-{run}",
       "script": [

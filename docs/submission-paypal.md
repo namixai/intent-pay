@@ -91,7 +91,7 @@ The demo page runs four steps and shows what the agent read and proposed, what t
 
 ## How we built it
 
-The core is Python with no runtime dependencies. The rules run in a fixed order and the first failure is the reason on the receipt: a proposal that doesn't parse, request ID, currency, payee, merchant category, per-payment limit, daily limit, minimum balance. When something breaks, the engine refuses: a ledger that can't be read or verified, a rule that raises an error, a balance that can't be read. No payment is allowed before its receipt is on disk.
+The core is Python with no runtime dependencies. The rules run in a fixed order and the first failure is the reason on the receipt: a proposal that doesn't parse, request ID, currency, payee, merchant category, per-payment limit, daily limit, the amount the owner's order works out to, minimum balance. When something breaks, the engine refuses: a ledger that can't be read or verified, a rule that raises an error, a balance that can't be read. No payment is allowed before its receipt is on disk.
 
 The ledger is a JSON Lines file in which each receipt carries the hash of the one before it. Editing, deleting or reordering a line breaks the chain, and the next decision refuses.
 

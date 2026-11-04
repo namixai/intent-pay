@@ -72,9 +72,12 @@ The rules run in this order, and the first one that fails is the reason on the r
 | its merchant category is listed, when the policy lists categories | `merchant_category_not_allowed` |
 | amount is at most `per_payment` | `per_payment_limit_exceeded` |
 | amount plus what was already allowed this UTC day is at most `daily` | `daily_limit_exceeded` |
+| amount and currency are the order's, unit price times quantity, when the step has an order | `amount_mismatch` |
 | balance minus amount stays at or above `min_balance` | `balance_unavailable`, `below_min_balance` |
 
 When something breaks, the engine refuses. A ledger that cannot be read, does not verify or cannot be written gives `ledger_unavailable`, a rule that raises an error gives `policy_error`, and a balance that cannot be read gives `balance_unavailable`. No payment is allowed before its receipt is on disk.
+
+The agent proposes the amount, but code works it out too. Each scenario step carries the owner's order (unit price, quantity, currency), and the engine refuses any other amount. That check runs after the limits, so the annual 470.00 in step 2 is still refused by the per-payment limit.
 
 Limits are per currency, so no rule depends on an exchange rate. A restart does not reset the day either: on every decision the engine reads what was already allowed back from the ledger.
 

@@ -173,6 +173,8 @@ class Scenario:
                                 raise AgentError(f"{path.name}: vendor_charge {key} must be a request ID, as text that is not blank")
                             charge = {**charge, key: ref}
                     step = {**step, "vendor_charge": charge}
+                if any(i.get("tool") == "propose_payment" for i in step.get("script") or []) and not step.get("order"):
+                    raise AgentError(f"{path.name}: a step with a proposal needs the owner's order")
                 steps.append(step)
             steps = tuple(steps)
             provider = data.get("provider", "paypal")
@@ -267,9 +269,11 @@ class StepTools:
             request_id = step_request_id(self.step)
             if request_id is None:
                 return {"error": "this step has no request ID, so nothing can be proposed"}, True, []
+            if not self.step.get("order"):
+                return {"error": "this step has no order, so no amount can be checked"}, True, []
             # The step's request ID replaces any the agent sent: a model cannot pick which ID it pays under.
             proposal = {**args, "request_id": request_id}
-            outcome = self.gateway.submit(proposal)
+            outcome = self.gateway.submit(proposal, self.step["order"])
             seen = outcome.for_agent()
             return seen, False, [{"kind": "proposal", "input": proposal},
                                  {"kind": "decision", "agent_sees": seen, "outcome": outcome.to_dict()}]

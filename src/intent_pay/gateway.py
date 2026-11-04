@@ -93,8 +93,8 @@ class Gateway:
     def ledger(self) -> Ledger:
         return self.engine.ledger
 
-    def submit(self, proposal: Any) -> Outcome:
-        receipt = self.engine.decide(proposal)
+    def submit(self, proposal: Any, order: Any = None) -> Outcome:
+        receipt = self.engine.decide(proposal, order)
         if not receipt.allowed:
             return Outcome(receipt)
         intent = Intent.parse(receipt.intent)
