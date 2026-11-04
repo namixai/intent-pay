@@ -216,7 +216,8 @@ class Scenario:
 
 
 def sandbox_gateway(scenario: Scenario, step: Mapping[str, Any], ledger: Ledger, sandbox: bool,
-                    record: pathlib.Path | None = None, env: Mapping[str, str] = os.environ) -> Gateway:
+                    record: pathlib.Path | None = None, env: Mapping[str, str] = os.environ,
+                    recorder: str = "python -m intent_pay.agent --record") -> Gateway:
     """The gateway for one step: the provider's sandbox with keys from the environment, or the
     step's recorded sandbox answers with stand-in keys that never leave this process. A step
     with no `replay` gets an empty recording, so any call it makes fails the step."""
@@ -227,7 +228,7 @@ def sandbox_gateway(scenario: Scenario, step: Mapping[str, Any], ledger: Ledger,
         if record is not None:
             transport = RecordingTransport(transport, record, source=(
                 f"recorded from the {scenario.provider_name} sandbox on {datetime.now(timezone.utc):%Y-%m-%d} "
-                f"by python -m intent_pay.agent --record, {scenario.path.name}, step {step['title']!r}"))
+                f"by {recorder}, {scenario.path.name}, step {step['title']!r}"))
     elif step.get("replay"):
         transport = ReplayTransport(scenario.resolve(step["replay"]))
     else:

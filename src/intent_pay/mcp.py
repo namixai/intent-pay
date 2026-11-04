@@ -57,11 +57,16 @@ def mcp_tools(provider: str) -> list[dict[str, Any]]:
     return tools
 
 
+def mcp_gateway(*args: Any, **kwargs: Any) -> Any:
+    """sandbox_gateway, with recordings that name this server as the program that made them."""
+    return sandbox_gateway(*args, recorder="python -m intent_pay.mcp --record", **kwargs)
+
+
 class Run:
     """One pass through a scenario by an outside agent: which task is open, and its tools."""
 
     def __init__(self, scenario: Scenario, ledger: Ledger, run: str, sandbox: bool = False,
-                 record: pathlib.Path | None = None, gateway_for: Callable[..., Any] = sandbox_gateway,
+                 record: pathlib.Path | None = None, gateway_for: Callable[..., Any] = mcp_gateway,
                  show: Callable[[str], None] = lambda _line: None):
         for i, step in enumerate(scenario.steps):
             if step.get("vendor_charge"):
@@ -182,13 +187,24 @@ def make_handler(server: Server, token: str, origins: frozenset[str] = frozenset
 
         def _gate(self) -> bool:
             if not self._authorized():
-                self._send(404)
+                self._refuse(404, unread=True)
                 return False
             origin = self.headers.get("Origin")
             if origin is not None and origin not in origins:
-                self._send(403)
+                self._refuse(403, unread=True, why=f"origin {origin[:100]!r}")
                 return False
             return True
+
+        def _refuse(self, status: int, body: dict[str, Any] | None = None, headers: Mapping[str, str] = {},
+                    unread: bool = False, why: str = "") -> None:
+            # One line per refusal, with the code and the method but not the path: the path holds the token.
+            print(f"refused {status} {self.command}" + (f" {why}" if why else ""), file=sys.stderr, flush=True)
+            if unread:
+                # The request's body is still on the connection. Kept open, it would be read as the start of the
+                # next request, and through a tunnel that request may be another client's. With this header the
+                # handler also closes its side once the answer is sent.
+                headers = {**headers, "Connection": "close"}
+            self._send(status, body, headers)
 
         def _send(self, status: int, body: dict[str, Any] | None = None, headers: Mapping[str, str] = {}) -> None:
             data = b"" if body is None else json.dumps(body).encode()
@@ -209,23 +225,24 @@ def make_handler(server: Server, token: str, origins: frozenset[str] = frozenset
             except ValueError:
                 length = 0
             if not 0 < length <= MAX_BODY:
-                self._send(413 if length > MAX_BODY else 400, _error(None, -32600, "a body of 1 to 65536 bytes is needed"))
+                self._refuse(413 if length > MAX_BODY else 400,
+                             _error(None, -32600, "a body of 1 to 65536 bytes is needed"), unread=True)
                 return
             try:
                 message = json.loads(self.rfile.read(length))
             except ValueError:
-                self._send(400, _error(None, -32700, "parse error"))
+                self._refuse(400, _error(None, -32700, "parse error"))
                 return
             if isinstance(message, list):
-                self._send(400, _error(None, -32600, "batches are not supported"))
+                self._refuse(400, _error(None, -32600, "batches are not supported"))
                 return
             # After initialize the client names the version it agreed to; one we do not speak is refused.
             # An initialize itself is answered whatever its header says, since its body negotiates.
             version = self.headers.get("MCP-Protocol-Version")
             negotiating = isinstance(message, dict) and message.get("method") == "initialize"
             if version is not None and version not in PROTOCOL_VERSIONS and not negotiating:
-                self._send(400, _error(message.get("id") if isinstance(message, dict) else None, -32600,
-                                       f"unsupported MCP-Protocol-Version {version!r}"))
+                self._refuse(400, _error(message.get("id") if isinstance(message, dict) else None, -32600,
+                                         f"unsupported MCP-Protocol-Version {version!r}"))
                 return
             try:
                 answer = server.handle(message)
@@ -240,11 +257,11 @@ def make_handler(server: Server, token: str, origins: frozenset[str] = frozenset
 
         def do_GET(self) -> None:
             if self._gate():
-                self._send(405, None, {"Allow": "POST"})
+                self._refuse(405, None, {"Allow": "POST"}, unread=True)
 
         def do_DELETE(self) -> None:
             if self._gate():
-                self._send(405, None, {"Allow": "POST"})
+                self._refuse(405, None, {"Allow": "POST"}, unread=True)
 
     return Handler
 

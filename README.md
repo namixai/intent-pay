@@ -55,7 +55,7 @@ The agent never sees a key or the card. What comes back from `propose_payment` i
 INTENT_PAY_MCP_TOKEN=<a long random string> python -m intent_pay.mcp --scenario scenarios/paypal-demo.json --sandbox
 ```
 
-It listens on 127.0.0.1:8765 only, at `/mcp/<token>` (or `/mcp` with `Authorization: Bearer <token>`), and answers anything else with 404. To reach it from outside, put an HTTPS tunnel in front of that port. Every call and its answer go to a journal file next to the ledger in `state/mcp/`, without headers, the token or keys.
+It listens on 127.0.0.1:8765 only, at `/mcp/<token>` (or `/mcp` with `Authorization: Bearer <token>`), and answers anything else with 404. To reach it from outside, put an HTTPS tunnel in front of that port. Every call and its answer go to a journal file next to the ledger in `state/mcp/`, without headers, the token or keys. A refused request is not in the journal. The server prints one line for it on stderr, with the status code and the method but not the path, and closes the connection when the request's body was left unread, so a tunnel cannot pass that body on as the start of someone else's request. With `--record <directory>` the sandbox exchanges are saved there, one file for each task that calls the sandbox, and each file names `python -m intent_pay.mcp --record` as its source.
 
 ## How the policy decides
 
