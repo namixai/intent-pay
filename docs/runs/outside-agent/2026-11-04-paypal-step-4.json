@@ -1,0 +1,230 @@
+{
+  "_source": "recorded from the PayPal sandbox on 2026-11-04 by python -m intent_pay.agent --record, paypal-demo.json, step 'PayPal refuses the card'",
+  "recorded": true,
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/oauth2/token",
+        "headers": {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        "body": {
+          "form": [
+            "grant_type"
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "scope": "https://uri.paypal.com/services/checkout/one-click-with-merchant-issued-token https://uri.paypal.com/services/payments/futurepayments https://uri.paypal.com/services/disputes/read-buyer https://uri.paypal.com/services/payments/realtimepayment https://uri.paypal.com/services/subscriptions/confirm-payment https://uri.paypal.com/services/payments/client-payments-eligibility https://api.paypal.com/v1/vault/credit-card https://api.paypal.com/v1/payments/.* https://uri.paypal.com/services/wallet/mandates/write https://uri.paypal.com/services/applications/webhooks https://uri.paypal.com/services/pricing/exchange-currency/read https://uri.paypal.com/services/credit/client-offer-presentment/read https://uri.paypal.com/services/disputes/update-seller https://uri.paypal.com/services/payments/payment/authcapture openid https://uri.paypal.com/services/disputes/read-seller https://uri.paypal.com/services/payments/orders/client_sdk_orders_api https://uri.paypal.com/services/payments/refund https://uri.paypal.com/services/disputes/create https://uri.paypal.com/services/pricing/quote-exchange-rates/read https://uri.paypal.com/services/documents/disputes/download https://uri.paypal.com/services/billing-agreements https://uri.paypal.com/services/checkout/payment-resources https://uri.paypal.com/services/wallet/mandates/read https://uri.paypal.com/payments/payouts https://api.paypal.com/v1/vault/credit-card/.* https://uri.paypal.com/services/shipping/trackers/readwrite https://uri.paypal.com/services/subscriptions",
+          "access_token": "REDACTED",
+          "token_type": "Bearer",
+          "app_id": "APP-3GY213195V2998216",
+          "expires_in": 32180,
+          "nonce": "2026-11-04T17:05:05ZXoHFPkrwJvHRGPh4bSAlX4xZ6yMFkW-ChtasqjmaRB8"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v2/checkout/orders",
+        "headers": {
+          "Content-Type": "application/json",
+          "Prefer": "return=representation",
+          "PayPal-Request-Id": "acme-seats-1104165755-order"
+        },
+        "body": {
+          "intent": "CAPTURE",
+          "purchase_units": [
+            {
+              "reference_id": "acme-seats-1104165755",
+              "invoice_id": "acme-seats-1104165755",
+              "custom_id": "receipt:3:0fe3dee9f2c28909",
+              "description": "Acme Analytics extra seats invoice",
+              "amount": {
+                "currency_code": "USD",
+                "value": "49.00"
+              }
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": "1U896752PB373692X",
+          "intent": "CAPTURE",
+          "status": "CREATED",
+          "purchase_units": [
+            {
+              "reference_id": "acme-seats-1104165755",
+              "amount": {
+                "currency_code": "USD",
+                "value": "49.00"
+              },
+              "payee": {
+                "email_address": "sb-ikcou53471331@business.example.com",
+                "merchant_id": "MU6VYKCH92UQG"
+              },
+              "description": "Acme Analytics extra seats invoice",
+              "custom_id": "receipt:3:0fe3dee9f2c28909",
+              "invoice_id": "acme-seats-1104165755"
+            }
+          ],
+          "create_time": "2026-11-04T17:08:46Z",
+          "links": [
+            {
+              "href": "https://api.sandbox.paypal.com/v2/checkout/orders/1U896752PB373692X",
+              "rel": "self",
+              "method": "GET"
+            },
+            {
+              "href": "https://www.sandbox.paypal.com/checkoutnow?token=1U896752PB373692X",
+              "rel": "approve",
+              "method": "GET"
+            },
+            {
+              "href": "https://api.sandbox.paypal.com/v2/checkout/orders/1U896752PB373692X",
+              "rel": "update",
+              "method": "PATCH"
+            },
+            {
+              "href": "https://api.sandbox.paypal.com/v2/checkout/orders/1U896752PB373692X/capture",
+              "rel": "capture",
+              "method": "POST"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v2/checkout/orders/1U896752PB373692X/capture",
+        "headers": {
+          "Content-Type": "application/json",
+          "Prefer": "return=representation",
+          "PayPal-Request-Id": "acme-seats-1104165755-capture"
+        },
+        "body": {
+          "payment_source": {
+            "card": {
+              "number": "REDACTED",
+              "expiry": "REDACTED",
+              "security_code": "REDACTED",
+              "name": "CCREJECT-REFUSED"
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "id": "1U896752PB373692X",
+          "intent": "CAPTURE",
+          "status": "COMPLETED",
+          "payment_source": {
+            "card": {
+              "name": "CCREJECT-REFUSED",
+              "last_digits": "1881",
+              "expiry": "REDACTED",
+              "brand": "VISA",
+              "type": "CREDIT",
+              "bin_details": {}
+            }
+          },
+          "purchase_units": [
+            {
+              "reference_id": "acme-seats-1104165755",
+              "amount": {
+                "currency_code": "USD",
+                "value": "49.00"
+              },
+              "payee": {
+                "email_address": "sb-ikcou53471331@business.example.com",
+                "merchant_id": "MU6VYKCH92UQG"
+              },
+              "description": "Acme Analytics extra seats invoice",
+              "custom_id": "receipt:3:0fe3dee9f2c28909",
+              "invoice_id": "acme-seats-1104165755",
+              "soft_descriptor": "TEST STORE",
+              "supplementary_data": {
+                "risk": {
+                  "risk_level_indicator": "HIGH_RISK"
+                }
+              },
+              "payments": {
+                "captures": [
+                  {
+                    "id": "54342109E7928721C",
+                    "status": "DECLINED",
+                    "amount": {
+                      "currency_code": "USD",
+                      "value": "49.00"
+                    },
+                    "final_capture": true,
+                    "seller_protection": {
+                      "status": "NOT_ELIGIBLE"
+                    },
+                    "seller_receivable_breakdown": {
+                      "gross_amount": {
+                        "currency_code": "USD",
+                        "value": "49.00"
+                      },
+                      "paypal_fee": {
+                        "currency_code": "USD",
+                        "value": "1.76"
+                      },
+                      "net_amount": {
+                        "currency_code": "USD",
+                        "value": "47.24"
+                      }
+                    },
+                    "invoice_id": "acme-seats-1104165755",
+                    "custom_id": "receipt:3:0fe3dee9f2c28909",
+                    "links": [
+                      {
+                        "href": "https://api.sandbox.paypal.com/v2/payments/captures/54342109E7928721C",
+                        "rel": "self",
+                        "method": "GET"
+                      },
+                      {
+                        "href": "https://api.sandbox.paypal.com/v2/checkout/orders/1U896752PB373692X",
+                        "rel": "up",
+                        "method": "GET"
+                      }
+                    ],
+                    "create_time": "2026-11-04T17:08:49Z",
+                    "update_time": "2026-11-04T17:08:49Z",
+                    "network_transaction_reference": {
+                      "id": "000000000000000",
+                      "date": "0203",
+                      "network": "VISA"
+                    },
+                    "processor_response": {
+                      "avs_code": "G",
+                      "cvv_code": "P",
+                      "response_code": "0500"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "create_time": "2026-11-04T17:08:49Z",
+          "update_time": "2026-11-04T17:08:49Z",
+          "links": [
+            {
+              "href": "https://api.sandbox.paypal.com/v2/checkout/orders/1U896752PB373692X",
+              "rel": "self",
+              "method": "GET"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
