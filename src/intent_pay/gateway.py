@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Callable, Protocol
 
 from intent_pay.intent import Intent, parse_money
@@ -104,20 +105,12 @@ class Gateway:
         return self.engine.ledger
 
     def submit(self, proposal: Any, order: Any = None) -> Outcome:
-        receipt = self.engine.decide(proposal, order)
+        # A balance the decision reads is checked again before the payment, without a second call.
+        balances: dict[str, Decimal] = {}
+        receipt = self.engine.decide(proposal, order, balances)
         if not receipt.allowed:
             return Outcome(receipt)
-        intent = Intent.parse(receipt.intent)
-        threshold = self.engine.policy.currencies[intent.currency].approve_above
-        if threshold is not None and intent.amount > threshold:
-            # Within the limits but above what the owner lets run alone: hold it for a person.
-            held = PaymentResult(provider=self.payer.provider, operation=AWAIT_APPROVAL, ok=False,
-                                 status="AWAITING_APPROVAL", reference=None,
-                                 detail=(f"{intent.amount} {intent.currency} is above the approval threshold of "
-                                         f"{threshold} {intent.currency}; nothing is paid until a person approves "
-                                         f"receipt #{receipt.seq}"))
-            return self._record(receipt, receipt.seq, held)
-        return self._pay(receipt, intent, order, read_balance=False)
+        return self._pay(receipt, Intent.parse(receipt.intent), order, balances)
 
     def approve(self, decision_seq: int, by: str) -> Outcome:
         """A person's yes to a held payment, then the payment. Only a payment this gateway's provider
@@ -154,8 +147,9 @@ class Gateway:
                           request_id=decision["request_id"], intent=decision["intent"],
                           policy_hash=decision["policy_hash"], at=decision["at"], seq=decision["seq"],
                           prev=decision["prev"], hash=decision["hash"])
-        # The payment may have waited for hours: the second check reads the balance again.
-        outcome = self._pay(receipt, Intent.parse(receipt.intent))
+        # The payment may have waited for hours: the second check reads the balance again, and the
+        # person's yes is what the approval threshold asks for.
+        outcome = self._pay(receipt, Intent.parse(receipt.intent), approved=True)
         return Outcome(outcome.receipt, outcome.payment, outcome.execution,
                        note=note + (f"; {outcome.note}" if outcome.note else ""))
 
@@ -197,16 +191,27 @@ class Gateway:
         result = self._call(lambda: simulate(cards[-1], money, currency, merchant_category), FORCED_CHARGE)
         return self._record(None, seq, result)
 
-    def _pay(self, receipt: Receipt, intent: Intent, order: Any = None, read_balance: bool = True) -> Outcome:
-        """The second check, then the payment. The rules run again on the stored receipt right
-        before the adapter is called; if they refuse now, nothing is paid and the refusal is
-        recorded against the decision."""
-        reason, detail = self.engine.recheck(receipt, order, read_balance)
+    def _pay(self, receipt: Receipt, intent: Intent, order: Any = None,
+             balances: dict[str, Decimal] | None = None, approved: bool = False) -> Outcome:
+        """The second check, then the payment. Right before the adapter is called, the rules run
+        again on the stored receipt, and the approval threshold is read from the policy as it is
+        now. If the rules refuse, nothing is paid and the refusal is recorded against the decision.
+        If the amount is above the threshold and no person has approved it, it is held for one."""
+        reason, detail = self.engine.recheck(receipt, order, balances)
         if reason is not Reason.OK:
             stopped = PaymentResult(provider=self.payer.provider, operation=RECHECK, ok=False,
                                     status="REFUSED_ON_RECHECK", reference=None,
                                     detail=f"{reason.value}: {detail}; nothing was paid")
-            return self._record(receipt, receipt.seq, stopped)
+            return self._record(receipt, receipt.seq, stopped, called=False)
+        threshold = self.engine.policy.currencies[intent.currency].approve_above
+        if not approved and threshold is not None and intent.amount > threshold:
+            # Within the limits but above what the owner lets run alone: hold it for a person.
+            held = PaymentResult(provider=self.payer.provider, operation=AWAIT_APPROVAL, ok=False,
+                                 status="AWAITING_APPROVAL", reference=None,
+                                 detail=(f"{intent.amount} {intent.currency} is above the approval threshold of "
+                                         f"{threshold} {intent.currency}; nothing is paid until a person approves "
+                                         f"receipt #{receipt.seq}"))
+            return self._record(receipt, receipt.seq, held, called=False)
         result = self._call(lambda: self.payer.pay(intent, receipt), "pay")
         return self._record(receipt, receipt.seq, result)
 
@@ -217,7 +222,8 @@ class Gateway:
             return PaymentResult(provider=self.payer.provider, operation=operation, ok=False, status="ERROR",
                                  reference=None, detail=f"{type(exc).__name__}: {exc}")
 
-    def _record(self, receipt: Receipt | None, decision_seq: int, result: PaymentResult) -> Outcome:
+    def _record(self, receipt: Receipt | None, decision_seq: int, result: PaymentResult,
+                called: bool = True) -> Outcome:
         try:
             with self.ledger.session() as state:
                 execution = self.ledger.append_execution(
@@ -225,6 +231,7 @@ class Gateway:
                     ok=result.ok, status=result.status, reference=result.reference, detail=result.detail,
                     steps=result.steps, at=self.clock())
         except LedgerError as exc:
-            return Outcome(receipt, result, None,
-                           note=f"the sandbox call was made but its record could not be written: {exc}")
+            done = ("the sandbox call was made but its record could not be written" if called
+                    else "nothing was sent to the sandbox, and this record could not be written")
+            return Outcome(receipt, result, None, note=f"{done}: {exc}")
         return Outcome(receipt, result, execution)
