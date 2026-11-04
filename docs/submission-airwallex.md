@@ -56,6 +56,8 @@ Then open http://127.0.0.1:8765 and run the four steps. The README explains how 
 
 Our idea named a Rust gateway. We built it in Python, with the policy design taken from the Rust Signer. Card freeze and simulated refunds are not built.
 
+We did not build on the AWS starter kits: our own Python gateway, with the same split of roles: the model proposes, code decides, a person approves above the policy threshold, one adapter writes. The demo policies set no threshold, so the four steps run without an approval.
+
 LIMIT_EXCEEDED does not say which limit applied: 470.00 is over all three on the card. We sent the currency and merchant category controls and saw them come back, but did not run a decline on them.
 
 The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. The Claude mode is tested against a stand-in client and has not run against the API yet.
