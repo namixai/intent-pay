@@ -49,7 +49,9 @@ FORCED_CHARGE = "forced_charge"
 # approval: that person's yes, written before the payment is made.
 AWAIT_APPROVAL = "await_approval"
 APPROVAL = "approval"
-OPERATIONS = ("pay", "refund", FORCED_CHARGE, AWAIT_APPROVAL, APPROVAL)
+# recheck: the rules, run again right before the payment, refused it; nothing was paid.
+RECHECK = "recheck"
+OPERATIONS = ("pay", "refund", FORCED_CHARGE, AWAIT_APPROVAL, APPROVAL, RECHECK)
 
 _PATH_LOCKS: dict[str, threading.Lock] = {}
 _PATH_LOCKS_GUARD = threading.Lock()

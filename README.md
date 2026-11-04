@@ -81,6 +81,8 @@ The agent proposes the amount, but code works it out too. Each scenario step car
 
 A currency table can also set `approve_above`. An allowed payment above it is not paid: the gateway writes it to the ledger as awaiting approval, and it is paid only after a person runs `python -m intent_pay approve --policy <file> --receipt <n> --by <name>`. The agent has no tool for that. The command pays with the provider that held the payment, and if that payment fails or the process stops before it, running the command again pays it; after one payment of the receipt goes through, nothing more is paid. Payments within the threshold run without approval, and the demo policies set no threshold.
 
+Right before any payment the gateway runs the rules once more on the stored receipt, with the policy as it is at that moment and without counting the receipt against itself. If they refuse now, nothing is paid and the ledger records why. For a held payment this second check also reads the balance again, since the payment may have waited for hours.
+
 Limits are per currency, so no rule depends on an exchange rate. A restart does not reset the day either: on every decision the engine reads what was already allowed back from the ledger.
 
 ## Receipts

@@ -18,9 +18,9 @@ from datetime import datetime
 from typing import Any, Callable, Protocol
 
 from intent_pay.intent import Intent, parse_money
-from intent_pay.ledger import (ALLOW, APPROVAL, AWAIT_APPROVAL, DECISION, FORCED_CHARGE, Execution, Ledger,
+from intent_pay.ledger import (ALLOW, APPROVAL, AWAIT_APPROVAL, DECISION, FORCED_CHARGE, RECHECK, Execution, Ledger,
                                LedgerError, Receipt)
-from intent_pay.policy import Engine, utc_now
+from intent_pay.policy import Engine, Reason, utc_now
 
 
 @dataclass(frozen=True)
@@ -117,8 +117,7 @@ class Gateway:
                                          f"{threshold} {intent.currency}; nothing is paid until a person approves "
                                          f"receipt #{receipt.seq}"))
             return self._record(receipt, receipt.seq, held)
-        result = self._call(lambda: self.payer.pay(intent, receipt), "pay")
-        return self._record(receipt, receipt.seq, result)
+        return self._pay(receipt, intent, order, read_balance=False)
 
     def approve(self, decision_seq: int, by: str) -> Outcome:
         """A person's yes to a held payment, then the payment. Only a payment this gateway's provider
@@ -155,9 +154,8 @@ class Gateway:
                           request_id=decision["request_id"], intent=decision["intent"],
                           policy_hash=decision["policy_hash"], at=decision["at"], seq=decision["seq"],
                           prev=decision["prev"], hash=decision["hash"])
-        intent = Intent.parse(receipt.intent)
-        result = self._call(lambda: self.payer.pay(intent, receipt), "pay")
-        outcome = self._record(receipt, decision_seq, result)
+        # The payment may have waited for hours: the second check reads the balance again.
+        outcome = self._pay(receipt, Intent.parse(receipt.intent))
         return Outcome(outcome.receipt, outcome.payment, outcome.execution,
                        note=note + (f"; {outcome.note}" if outcome.note else ""))
 
@@ -198,6 +196,19 @@ class Gateway:
         money = parse_money(amount, currency)
         result = self._call(lambda: simulate(cards[-1], money, currency, merchant_category), FORCED_CHARGE)
         return self._record(None, seq, result)
+
+    def _pay(self, receipt: Receipt, intent: Intent, order: Any = None, read_balance: bool = True) -> Outcome:
+        """The second check, then the payment. The rules run again on the stored receipt right
+        before the adapter is called; if they refuse now, nothing is paid and the refusal is
+        recorded against the decision."""
+        reason, detail = self.engine.recheck(receipt, order, read_balance)
+        if reason is not Reason.OK:
+            stopped = PaymentResult(provider=self.payer.provider, operation=RECHECK, ok=False,
+                                    status="REFUSED_ON_RECHECK", reference=None,
+                                    detail=f"{reason.value}: {detail}; nothing was paid")
+            return self._record(receipt, receipt.seq, stopped)
+        result = self._call(lambda: self.payer.pay(intent, receipt), "pay")
+        return self._record(receipt, receipt.seq, result)
 
     def _call(self, fn: Callable[[], PaymentResult], operation: str) -> PaymentResult:
         try:

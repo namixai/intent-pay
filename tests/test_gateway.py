@@ -138,6 +138,53 @@ def test_a_process_stopped_after_the_approval_is_finished_by_approving_again(led
     assert t.finished
 
 
+def tighter(per_payment):
+    return Policy.from_mapping({**POLICY, "currencies": {"USD": {"per_payment": per_payment, "daily": "100.00"}}})
+
+
+def test_a_policy_changed_between_the_decision_and_the_payment_stops_it(ledger, clock):
+    g, t = gateway(ledger, clock)  # an empty cassette: any call would raise
+    decide = g.engine.decide
+    def decide_then_tighten(*args):
+        receipt = decide(*args)
+        g.engine.policy = tighter("40.00")
+        return receipt
+    g.engine.decide = decide_then_tighten
+    out = g.submit(intent())
+    assert out.receipt.allowed and not out.payment.ok and out.payment.status == "REFUSED_ON_RECHECK"
+    assert out.payment.detail.startswith("per_payment_limit_exceeded") and t.calls == []
+    assert [r.get("operation") for r in ledger.records()] == [None, "recheck"] and ledger.verify() == 2
+
+
+def test_a_held_payment_is_checked_again_when_it_is_approved(ledger, clock):
+    g, t = held_gateway(ledger, clock, "pay-completed.json")
+    held = g.submit(intent(amount="55.00"))
+    loose, g.engine.policy = g.engine.policy, tighter("50.00")
+    assert g.approve(held.receipt.seq, "Alex").payment.status == "REFUSED_ON_RECHECK" and t.calls == []
+    g.engine.policy = loose
+    assert g.approve(held.receipt.seq, "Alex").payment.ok
+
+
+def test_the_reserve_is_read_again_before_a_held_payment(ledger, clock):
+    g, t = held_gateway(ledger, clock)
+    held = g.submit(intent(amount="55.00"))
+    g.engine.balance = lambda currency: Decimal("1040.00")
+    out = g.approve(held.receipt.seq, "Alex")
+    assert out.payment.detail.startswith("below_min_balance") and t.calls == []
+
+
+def test_the_second_check_does_not_count_the_payment_against_itself(ledger, clock):
+    g, _ = gateway(ledger, clock, "pay-completed.json")
+    assert g.submit(intent(amount="55.00")).payment.ok  # 55.00 counted twice would pass the daily 100.00
+
+
+def test_a_refused_retry_does_not_stop_the_held_payment(ledger, clock):
+    g, _ = held_gateway(ledger, clock, "pay-completed.json")
+    held = g.submit(intent(amount="55.00"))
+    assert g.submit(intent(amount="55.00")).receipt.reason == "duplicate_request_id"
+    assert g.approve(held.receipt.seq, "Alex").payment.ok
+
+
 def test_the_approve_command_pays_with_the_provider_that_held_it(tmp_path, capsys, clock):
     from intent_pay.__main__ import main
     policy = tmp_path / "p.toml"
