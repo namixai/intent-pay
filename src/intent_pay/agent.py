@@ -288,6 +288,8 @@ def summary(seen: Mapping[str, Any], provider: str = "paypal") -> str:
     payment = seen.get("payment") or {}
     if payment.get("status") == "AWAITING_APPROVAL":
         return "The policy allowed it, and it now waits for a person to approve it. Nothing was paid yet."
+    if payment.get("status") == "REFUSED_ON_RECHECK":
+        return f"The policy allowed it, but the second check right before the payment refused it ({payment.get('detail')})."
     if payment.get("ok"):
         what = "capture" if provider == "paypal" else "card"
         return f"Paid. {name} {what} {payment.get('reference')}, status {payment.get('status')}."

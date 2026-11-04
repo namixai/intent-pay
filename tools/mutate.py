@@ -57,8 +57,8 @@ MUTATIONS = [
     ("no file lock between processes", "src/intent_pay/ledger.py",
      "fcntl.flock(fh.fileno(), fcntl.LOCK_EX)", "pass"),
     ("decide lets an error escape", "src/intent_pay/policy.py",
-     "            return self._decide(proposal, order)\n        except Exception as exc:",
-     "            return self._decide(proposal, order)\n        except ZeroDivisionError as exc:\n            raise\n        except Exception as exc:"),
+     "            return self._decide(proposal, order, balances)\n        except Exception as exc:",
+     "            return self._decide(proposal, order, balances)\n        except ZeroDivisionError as exc:\n            raise\n        except Exception as exc:"),
     ("gateway pays a refused decision", "src/intent_pay/gateway.py",
      "        if not receipt.allowed:\n            return Outcome(receipt)", "        if False:\n            return Outcome(receipt)"),
     ("network error reads as paid", "src/intent_pay/gateway.py",
@@ -181,14 +181,15 @@ MUTATIONS = [
     ("a ready order skips the checks", "src/intent_pay/policy.py",
      "        if isinstance(value, Order):\n", "        if isinstance(value, Order):\n            return value\n"),
     ("broken order read outside the ledger session", "src/intent_pay/policy.py",
-     "            return self._decide(proposal, order)\n",
-     "            return self._decide(proposal, None if order is None else Order.parse(order))\n"),
+     "            return self._decide(proposal, order, balances)\n",
+     "            return self._decide(proposal, None if order is None else Order.parse(order), balances)\n"),
     ("order dropped by the agent tools", "src/intent_pay/agent.py",
      'outcome = self.gateway.submit(proposal, self.step["order"])', "outcome = self.gateway.submit(proposal)"),
     ("payment above the threshold is paid anyway", "src/intent_pay/gateway.py",
-     "if threshold is not None and intent.amount > threshold:", "if False:"),
+     "if not approved and threshold is not None and intent.amount > threshold:", "if False:"),
     ("threshold compared inclusively", "src/intent_pay/gateway.py",
-     "if threshold is not None and intent.amount > threshold:", "if threshold is not None and intent.amount >= threshold:"),
+     "if not approved and threshold is not None and intent.amount > threshold:",
+     "if not approved and threshold is not None and intent.amount >= threshold:"),
     ("approval of a payment never held", "src/intent_pay/gateway.py",
      "            if not holds:\n                raise GatewayError(f\"receipt #{decision_seq} is not waiting for approval\")\n            if holds",
      "            if False:\n                raise GatewayError(f\"receipt #{decision_seq} is not waiting for approval\")\n            if holds"),
@@ -202,6 +203,43 @@ MUTATIONS = [
      "            if _paid(done):\n                raise GatewayError", "            if False:\n                raise GatewayError"),
     ("approved and unpaid payment cannot be finished", "src/intent_pay/gateway.py",
      "            if approvals:\n                note =", "            if approvals:\n                raise GatewayError(\"x\")\n                note ="),
+    ("no second check before the payment", "src/intent_pay/gateway.py",
+     "        if reason is not Reason.OK:\n            stopped", "        if False:\n            stopped"),
+    ("second check counts the decision against itself", "src/intent_pay/policy.py",
+     "others = LedgerState(records=[r for r in state.records if r[\"seq\"] != receipt.seq])",
+     "others = LedgerState(records=list(state.records))"),
+    ("second check reads the decision's own request ID", "src/intent_pay/policy.py",
+     "others = LedgerState(records=[r for r in state.records if r[\"seq\"] != receipt.seq])",
+     "others = LedgerState(records=[r for r in state.records if r[\"seq\"] != receipt.seq], request_ids=dict(state.request_ids))"),
+    ("held payment checked against the reading from when it was held", "src/intent_pay/gateway.py",
+     "        outcome = self._pay(receipt, Intent.parse(receipt.intent), approved=True)\n",
+     "        outcome = self._pay(receipt, Intent.parse(receipt.intent), balances={\"USD\": Decimal(\"2000\")}, approved=True)\n"),
+    ("second check skips the reserve when it reuses the decision's reading", "src/intent_pay/policy.py",
+     "        if rule.min_balance is not None:\n",
+     "        if rule.min_balance is not None and not (balances and cur in balances):\n"),
+    ("second check reads the balance again", "src/intent_pay/gateway.py",
+     "        return self._pay(receipt, Intent.parse(receipt.intent), order, balances)\n",
+     "        return self._pay(receipt, Intent.parse(receipt.intent), order)\n"),
+    ("approval threshold read before the second check", "src/intent_pay/gateway.py",
+     "        reason, detail = self.engine.recheck(receipt, order, balances)\n"
+     "        if reason is not Reason.OK:\n"
+     "            stopped = PaymentResult(provider=self.payer.provider, operation=RECHECK, ok=False,\n"
+     "                                    status=\"REFUSED_ON_RECHECK\", reference=None,\n"
+     "                                    detail=f\"{reason.value}: {detail}; nothing was paid\")\n"
+     "            return self._record(receipt, receipt.seq, stopped, called=False)\n"
+     "        threshold = self.engine.policy.currencies[intent.currency].approve_above\n",
+     "        threshold = self.engine.policy.currencies[intent.currency].approve_above\n"
+     "        reason, detail = self.engine.recheck(receipt, order, balances)\n"
+     "        if reason is not Reason.OK:\n"
+     "            stopped = PaymentResult(provider=self.payer.provider, operation=RECHECK, ok=False,\n"
+     "                                    status=\"REFUSED_ON_RECHECK\", reference=None,\n"
+     "                                    detail=f\"{reason.value}: {detail}; nothing was paid\")\n"
+     "            return self._record(receipt, receipt.seq, stopped, called=False)\n"),
+    ("approved payment held again", "src/intent_pay/gateway.py",
+     "        if not approved and threshold is not None", "        if threshold is not None"),
+    ("write-error note always says the sandbox was called", "src/intent_pay/gateway.py",
+     "the sandbox call was made but its record could not be written\" if called\n",
+     "the sandbox call was made but its record could not be written\" if True\n"),
     ("physical-card field on a virtual card", "src/intent_pay/adapters/airwallex.py",
      '"is_personalized": False,', '"is_personalized": False, "activate_on_issue": True,'),
     ("hand-written answers labelled recorded", "src/intent_pay/agent.py",

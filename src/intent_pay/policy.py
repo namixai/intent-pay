@@ -222,15 +222,16 @@ class Engine:
         self.balance = balance
         self.clock = clock
 
-    def decide(self, proposal: Any, order: Any = None) -> Receipt:
+    def decide(self, proposal: Any, order: Any = None, balances: dict[str, Decimal] | None = None) -> Receipt:
         """Never raises: whatever goes wrong comes back as a refusal. With an `order`, the amount
-        must be the one the engine works out from it (amount_mismatch otherwise)."""
+        must be the one the engine works out from it (amount_mismatch otherwise). A `balances`
+        dict keeps each balance the reserve rule reads, for the second check in the same call."""
         try:
-            return self._decide(proposal, order)
+            return self._decide(proposal, order, balances)
         except Exception as exc:  # fail-closed: nothing that breaks may read as an allow
             return self._unrecorded(utc_now(), Reason.POLICY_ERROR, f"{type(exc).__name__}: {exc}", None, None)
 
-    def _decide(self, proposal: Any, order: Any) -> Receipt:
+    def _decide(self, proposal: Any, order: Any, balances: dict[str, Decimal] | None) -> Receipt:
         try:
             now = self.clock()
             if not isinstance(now, datetime) or now.tzinfo is None:
@@ -247,7 +248,7 @@ class Engine:
         try:
             with self.ledger.session() as state:
                 try:
-                    reason, detail = self._evaluate(intent, state, now, order)
+                    reason, detail = self._evaluate(intent, state, now, order, balances)
                 except Exception as exc:  # fail-closed: a rule that breaks refuses
                     reason, detail = Reason.POLICY_ERROR, f"{type(exc).__name__}: {exc}"
                 decision = ALLOW if reason is Reason.OK else REFUSE
@@ -257,8 +258,30 @@ class Engine:
         except LedgerError as exc:
             return self._unrecorded(now, Reason.LEDGER_UNAVAILABLE, str(exc), intent.request_id, intent.to_dict())
 
+    def recheck(self, receipt: Receipt, order: Any = None,
+                balances: dict[str, Decimal] | None = None) -> tuple[Reason, str]:
+        """The rules once more for an allowed, recorded decision, right before it is paid: the
+        policy the engine holds now, against the ledger now without this receipt's own decision, so
+        its request ID is not a duplicate of itself and its amount does not count twice against its
+        day. The reserve is the one the policy sets now. `balances` holds what the decision read a
+        moment ago in the same call: a balance found there is checked again against that reserve,
+        and one that is not there (the decision had no reserve to check) is read now. Without
+        `balances` every balance is read now. Writes nothing and never raises."""
+        try:
+            intent = Intent.parse(receipt.intent)
+            at = datetime.fromisoformat(receipt.at)
+            with self.ledger.session() as state:
+                # Only what the rules read: the other decisions. Request IDs stay out, since the only
+                # decisions with this one's ID are itself and the duplicates refused after it.
+                others = LedgerState(records=[r for r in state.records if r["seq"] != receipt.seq])
+                return self._evaluate(intent, others, at, order, balances)
+        except LedgerError as exc:
+            return Reason.LEDGER_UNAVAILABLE, str(exc)
+        except Exception as exc:  # fail-closed: a rule that breaks refuses
+            return Reason.POLICY_ERROR, f"{type(exc).__name__}: {exc}"
+
     def _evaluate(self, intent: Intent, state: LedgerState, now: datetime,
-                  order: Any = None) -> tuple[Reason, str]:
+                  order: Any = None, balances: dict[str, Decimal] | None = None) -> tuple[Reason, str]:
         cur = intent.currency
         if intent.request_id in state.request_ids:
             return Reason.DUPLICATE_REQUEST_ID, (
@@ -302,7 +325,7 @@ class Engine:
                 f"{order.currency} = {order.amount} {order.currency}")
 
         if rule.min_balance is not None:
-            balance = self._read_balance(cur)
+            balance = self._balance(cur, balances)
             if balance is None:
                 return Reason.BALANCE_UNAVAILABLE, f"the {cur} balance could not be read, so the reserve cannot be checked"
             after = balance - intent.amount
@@ -312,6 +335,15 @@ class Engine:
                     f"below the reserve of {rule.min_balance} {cur}")
 
         return Reason.OK, "within every rule of the policy"
+
+    def _balance(self, currency: str, balances: dict[str, Decimal] | None) -> Decimal | None:
+        """The balance read earlier in this call, or a new reading, kept for the next check."""
+        if balances is not None and currency in balances:
+            return balances[currency]
+        balance = self._read_balance(currency)
+        if balances is not None and balance is not None:
+            balances[currency] = balance
+        return balance
 
     def _read_balance(self, currency: str) -> Decimal | None:
         if self.balance is None:
