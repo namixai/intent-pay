@@ -47,6 +47,16 @@ By default the agent follows the tool calls written in the scenario, and PayPal'
 
 The agent never sees a key or the card. What comes back from `propose_payment` is the decision, its reason and PayPal's status.
 
+### An agent from somewhere else
+
+`python -m intent_pay.mcp` serves the same two tools as a remote MCP server, so an agent in another app can take the script's place. It offers `read_page` and `propose_payment` and nothing else. The agent opens each task by reading `https://tasks.acme.example/next`; the request ID and the order are the task's, set by code, and the gateway decides and pays as above.
+
+```bash
+INTENT_PAY_MCP_TOKEN=<a long random string> python -m intent_pay.mcp --scenario scenarios/paypal-demo.json --sandbox
+```
+
+It listens on 127.0.0.1:8765 only, at `/mcp/<token>` (or `/mcp` with `Authorization: Bearer <token>`), and answers anything else with 404. To reach it from outside, put an HTTPS tunnel in front of that port. Every call and its answer go to a journal file next to the ledger in `state/mcp/`, without headers, the token or keys.
+
 ## How the policy decides
 
 The owner writes a TOML file ([policies/example.toml](policies/example.toml)):
