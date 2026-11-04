@@ -1,4 +1,4 @@
-Commit 9a11685, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-02.
+Commit cc15ba2, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-04.
 $ python -m venv .venv
 $ python -m pip install -e ".[dev]"
 $ python tools/mutate.py
@@ -73,6 +73,33 @@ red   declined reversal reported as reversed
 red   reversal with no answer loses the approved charge
 red   cut-off HTTP reply escapes the reversal
 red   broken recording read as no answer
+red   the agent picks the request ID
+red   step request ID kept with its spaces
+red   non-text request ID passes the scenario load
+red   ledger split on every line break
+red   vendor charge references kept with their spaces
+red   order amount ignores the quantity
+red   amount check removed
+red   a ready order skips the checks
+red   broken order read outside the ledger session
+red   order dropped by the agent tools
+red   payment above the threshold is paid anyway
+red   threshold compared inclusively
+red   approval of a payment never held
+red   approval given twice
+red   approval ignores the provider of the hold
+red   approval command always builds PayPal
+red   approved payment paid again after it went through
+red   approved and unpaid payment cannot be finished
+red   no second check before the payment
+red   second check counts the decision against itself
+red   second check reads the decision's own request ID
+red   held payment checked against the reading from when it was held
+red   second check skips the reserve when it reuses the decision's reading
+red   second check reads the balance again
+red   approval threshold read before the second check
+red   approved payment held again
+red   write-error note always says the sandbox was called
 red   physical-card field on a virtual card
 red   hand-written answers labelled recorded
 red   label counts steps that did not run
@@ -80,4 +107,4 @@ red   recording does not say it was recorded
 red   card controls left out of the record
 red   card controls read from the answer
 red   card and receipt always match
-77 mutations, 0 not caught
+104 mutations, 0 not caught
