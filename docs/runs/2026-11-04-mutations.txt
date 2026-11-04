@@ -1,4 +1,4 @@
-Commit cc15ba2, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-04.
+Commit 3353a3e, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-04.
 $ python -m venv .venv
 $ python -m pip install -e ".[dev]"
 $ python tools/mutate.py
@@ -107,4 +107,20 @@ red   recording does not say it was recorded
 red   card controls left out of the record
 red   card controls read from the answer
 red   card and receipt always match
-104 mutations, 0 not caught
+red   MCP endpoint without the token
+red   MCP token matched as a prefix
+red   MCP bearer accepted on any path
+red   MCP Origin not checked
+red   MCP access log prints the path
+red   MCP proposal before a task opens
+red   MCP tasks page does not open the next task
+red   MCP task opened before its gateway is made
+red   MCP protocol version header not checked
+red   MCP initialize refused for its header
+red   MCP offers a tool the agent does not have
+red   MCP echoes an unknown protocol version
+red   MCP answers a notification
+red   MCP takes a body of any size
+red   MCP error closes the connection
+red   MCP runs a step that has no agent task
+120 mutations, 0 not caught

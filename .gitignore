@@ -11,6 +11,7 @@ secrets/
 state/
 *.jsonl
 !tests/fixtures/**/*.jsonl
+!docs/runs/**/*.jsonl
 
 # Python
 __pycache__/

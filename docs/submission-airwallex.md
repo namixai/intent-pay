@@ -50,7 +50,7 @@ Python 3.11 or newer. No keys are needed: the demo replays the recorded answers 
     python -m pip install -e .
     python -m intent_pay.web --scenario scenarios/airwallex-demo.json
 
-Then open http://127.0.0.1:8765 and run the four steps. The README explains how to run them against your own sandbox with --sandbox. There are 273 tests, and a mutation check breaks the rules 104 ways and finds a failing test for each.
+Then open http://127.0.0.1:8765 and run the four steps. The README explains how to run them against your own sandbox with --sandbox. There are 289 tests, and a mutation check breaks the rules 120 ways and finds a failing test for each.
 
 ## What differs from our idea, and what we did not do
 
@@ -60,7 +60,7 @@ We did not build on the AWS starter kits: our own Python gateway, with the same 
 
 LIMIT_EXCEEDED does not say which limit applied: 470.00 is over all three on the card. We sent the currency and merchant category controls and saw them come back, but did not run a decline on them.
 
-The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. The Claude mode is tested against a stand-in client and has not run against the API yet.
+The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. An outside agent, a Grok bot, has used the agent's two tools through a remote MCP server, but in the PayPal sandbox only ([docs/runs/outside-agent/](runs/outside-agent/)): the MCP server does not run the Airwallex scenario yet. The Claude mode is tested against a stand-in client and has not run against the API yet.
 
 ## Team
 
@@ -77,5 +77,5 @@ Before pasting, replace `VIDEO_URL` with the uploaded video's link.
 | 49.00 and 470.00 USD | [scenarios/airwallex-demo.json](../scenarios/airwallex-demo.json) |
 | The four steps, LIMIT_EXCEEDED, 2026-11-02 | [docs/runs/2026-11-02-airwallex-sandbox.txt](runs/2026-11-02-airwallex-sandbox.txt) |
 | The controls in the card answer | [tests/fixtures/airwallex/pay-cleared.json](../tests/fixtures/airwallex/pay-cleared.json) |
-| 273 tests | [docs/runs/2026-11-04-tests.txt](runs/2026-11-04-tests.txt) |
-| 104 mutations, none uncaught | [docs/runs/2026-11-04-mutations.txt](runs/2026-11-04-mutations.txt) |
+| 289 tests | [docs/runs/2026-11-04-tests.txt](runs/2026-11-04-tests.txt) |
+| 120 mutations, none uncaught | [docs/runs/2026-11-04-mutations.txt](runs/2026-11-04-mutations.txt) |

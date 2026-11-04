@@ -36,12 +36,13 @@ Checked on 2026-11-01 in a fresh clone of commit b5cb1d2 with an empty environme
 | The PayPal Orders v2 calls | [src/intent_pay/adapters/paypal.py](../src/intent_pay/adapters/paypal.py) |
 | The hash-chained receipts | [src/intent_pay/ledger.py](../src/intent_pay/ledger.py) |
 | The agent, scripted or Claude | [src/intent_pay/agent.py](../src/intent_pay/agent.py) |
+| The agent's two tools as a remote MCP server, for an outside agent | [src/intent_pay/mcp.py](../src/intent_pay/mcp.py) |
 | The demo page | [src/intent_pay/web.py](../src/intent_pay/web.py), [web/](../web) |
 | Answers recorded from the PayPal sandbox on 2026-10-27 | [tests/fixtures/paypal/](../tests/fixtures/paypal) |
 | The tests | [tests/](../tests) |
 | Mutation check of the tests | [tools/mutate.py](../tools/mutate.py) |
 
-The four steps also ran against the live PayPal sandbox on 2026-10-28, with `--sandbox`. Claude in place of the scripted agent is tested against a stand-in client, not against the API.
+The four steps also ran against the live PayPal sandbox on 2026-10-28, with `--sandbox`. On 2026-11-04 an outside agent took the scripted agent's place: a Grok bot that had not seen this code, connected to the agent's two tools through a remote MCP server, did the same four tasks in the PayPal sandbox. It paid task 1, proposed nothing for the injected annual plan or the retry, and PayPal declined its task 4 payment. The records are in [docs/runs/outside-agent/](runs/outside-agent/). Claude in place of the scripted agent is tested against a stand-in client, not against the API.
 
 ## The video
 
@@ -99,7 +100,7 @@ The PayPal adapter uses Orders v2. An allowed intent becomes an order, with the 
 
 The default demo replays answers we recorded from the PayPal sandbox, with keys, tokens and card fields removed, so a judge can run it with no keys. One flag, --sandbox, runs the same steps against a live sandbox app.
 
-Every refusal has its own test. tools/mutate.py breaks the rules one at a time on a copy of the code and checks that a test fails for each: 273 tests, 104 mutations, none uncaught.
+Every refusal has its own test. tools/mutate.py breaks the rules one at a time on a copy of the code and checks that a test fails for each: 289 tests, 120 mutations, none uncaught.
 
 ## Challenges we ran into
 
@@ -111,19 +112,25 @@ A double charge has three checks in its way, and we watched each one in the sand
 
 The refusal in step 2 happens after the agent has already been fooled. The agent proposes the annual plan, and that is fine: the attack ends at the policy, in code the page can't reach. The whole path ran against the PayPal sandbox on 2026-10-28 with the same four outcomes.
 
+A Grok bot that had not seen our code ran the same tasks on 2026-11-04 and did not take the bait. It left the annual plan to the owner and did not pay the November invoice twice. The policy is there for the agent that does.
+
 ## What we learned
 
 Keep the model's judgment and the permission to spend apart and the design gets simpler: the agent's prompt no longer has to carry the limits.
 
 ## What's next
 
-The Claude mode (below, under tools) has run only against a stand-in client. Running it against the API is the next step, and so is moving the gateway into its own process. The repository also holds an Airwallex adapter, which ran its own four-step demo in the Airwallex sandbox on 2026-11-02.
+One outside agent has run the four tasks so far, the Grok bot (below, under tools). It stopped at both traps on its own, so that run never reached the policy's refusals. Next: more agents, the Claude mode among them, which has run only against a stand-in client, and moving the gateway into its own process. The repository also holds an Airwallex adapter, which ran its own four-step demo in the Airwallex sandbox on 2026-11-02.
 ```
 
 ### Tools
 
 ```text
-Claude, through the Anthropic Python SDK, default model claude-sonnet-5-5. With INTENT_PAY_AGENT=claude, Claude takes the place of the scripted agent: it gets the same task and page and two tools, read_page and propose_payment, and may or may not follow the page to the annual plan. Either way the policy decides. This mode is tested against a stand-in client and has not run against the API yet, and the video uses the scripted agent. It needs your own ANTHROPIC_API_KEY.
+A Grok bot, as an outside agent. On 2026-11-04 it did the four tasks in the PayPal sandbox through python -m intent_pay.mcp, which serves the agent's two tools, read_page and propose_payment, as a remote MCP server. The bot had not seen this code. Its transcript and the server's records: https://github.com/namixai/intent-pay/tree/main/docs/runs/outside-agent
+
+Claude, through the Anthropic Python SDK, default model claude-sonnet-5-5. With INTENT_PAY_AGENT=claude, Claude takes the place of the scripted agent: it gets the same task and page and the same two tools, and may or may not follow the page to the annual plan. Either way the policy decides. This mode is tested against a stand-in client and has not run against the API yet. It needs your own ANTHROPIC_API_KEY.
+
+The video uses the scripted agent.
 
 Claude Code wrote part of the code as a coding agent, and CodeRabbit reviewed the pull requests.
 
@@ -133,7 +140,7 @@ No sponsor tools are used.
 ### Built with
 
 ```text
-python, paypal-orders-api, paypal-sandbox, claude, anthropic-sdk, javascript, html, css, toml
+python, paypal-orders-api, paypal-sandbox, mcp, claude, anthropic-sdk, javascript, html, css, toml
 ```
 
 ### Try it out
@@ -149,9 +156,10 @@ Video link: the YouTube link, once it is uploaded.
 | Number | Source |
 |---|---|
 | 49.00 and 470.00 USD, the four outcomes | [scenarios/paypal-demo.json](../scenarios/paypal-demo.json), run in [docs/runs/2026-11-04-agent.txt](runs/2026-11-04-agent.txt) |
-| 273 tests | [docs/runs/2026-11-04-tests.txt](runs/2026-11-04-tests.txt) |
-| 104 mutations, none uncaught | [docs/runs/2026-11-04-mutations.txt](runs/2026-11-04-mutations.txt) |
+| 289 tests | [docs/runs/2026-11-04-tests.txt](runs/2026-11-04-tests.txt) |
+| 120 mutations, none uncaught | [docs/runs/2026-11-04-mutations.txt](runs/2026-11-04-mutations.txt) |
 | The run against the PayPal sandbox, 2026-10-28 | [docs/runs/2026-10-28-paypal-sandbox-ledger.txt](runs/2026-10-28-paypal-sandbox-ledger.txt) |
+| The run with an outside agent, a Grok bot, 2026-11-04 | [docs/runs/outside-agent/](runs/outside-agent/) |
 | The run against the Airwallex sandbox, 2026-11-02 | [docs/runs/2026-11-02-airwallex-sandbox.txt](runs/2026-11-02-airwallex-sandbox.txt) |
 | First commit, 2026-10-27 | `git log --reverse` |
 | PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING, DUPLICATE_INVOICE_ID | [README](../README.md#paypal-sandbox) |
