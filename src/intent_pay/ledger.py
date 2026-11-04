@@ -328,7 +328,9 @@ class Ledger:
             raise LedgerError(f"cannot read the ledger: {exc}") from None
         if text and not text.endswith("\n"):
             raise LedgerError("the last line of the ledger is incomplete")
-        return text.splitlines()
+        # Records are split on \n only: splitlines() would also break a record at U+2028, U+2029 or
+        # U+0085, which a refused proposal's request ID may carry into the file as written.
+        return text.split("\n")[:-1]
 
     def _write_line(self, line: str) -> None:
         if self.path is None:

@@ -80,7 +80,7 @@ We had already worked on this for trading agents in Usenami Signer, our Rust sig
 
 It is for a team that wants an agent to pay its recurring software bills without giving the agent anything it could overspend with.
 
-The agent holds no key and no card. It fills in an intent (amount, currency, payee or merchant category, purpose, request ID) and hands it over. A policy engine, ordinary Python and not a model, checks the intent against rules the account owner wrote in a TOML file. Only the gateway holds the PayPal key, and it acts only on an allowed intent. In this demo the agent and the gateway run in one Python process, so that line is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. Every decision leaves a receipt. A refusal names the rule that failed, and an allowed one records that all rules passed.
+The agent holds no key and no card. It fills in an intent (amount, currency, payee or merchant category, purpose) and hands it over. The request ID comes from the task and is set by code, so the agent cannot choose it. A policy engine, ordinary Python and not a model, checks the intent against rules the account owner wrote in a TOML file. Only the gateway holds the PayPal key, and it acts only on an allowed intent. In this demo the agent and the gateway run in one Python process, so that line is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. Every decision leaves a receipt. A refusal names the rule that failed, and an allowed one records that all rules passed.
 
 The demo page runs four steps and shows what the agent read and proposed, what the policy decided and why, and what PayPal answered:
 
@@ -91,7 +91,7 @@ The demo page runs four steps and shows what the agent read and proposed, what t
 
 ## How we built it
 
-The core is Python with no runtime dependencies. The rules run in a fixed order and the first failure is the reason on the receipt: a proposal that doesn't parse, request ID, currency, payee, merchant category, per-payment limit, daily limit, minimum balance. When something breaks, the engine refuses: a ledger that can't be read or verified, a rule that raises an error, a balance that can't be read. No payment is allowed before its receipt is on disk.
+The core is Python with no runtime dependencies. The rules run in a fixed order and the first failure is the reason on the receipt: a proposal that doesn't parse, request ID, currency, payee, merchant category, per-payment limit, daily limit, the amount the owner's order works out to, minimum balance. When something breaks, the engine refuses: a ledger that can't be read or verified, a rule that raises an error, a balance that can't be read. No payment is allowed before its receipt is on disk.
 
 The ledger is a JSON Lines file in which each receipt carries the hash of the one before it. Editing, deleting or reordering a line breaks the chain, and the next decision refuses.
 

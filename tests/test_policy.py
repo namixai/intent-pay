@@ -10,7 +10,7 @@ import pytest
 
 from conftest import NOON, POLICY, intent
 from intent_pay.ledger import Ledger
-from intent_pay.policy import Engine, Policy, Reason
+from intent_pay.policy import Engine, Order, Policy, Reason
 
 
 def refused(receipt, reason):
@@ -28,6 +28,52 @@ def test_allow_within_every_rule(engine, ledger):
     assert ledger.verify() == 1
 
 
+ORDER = {"unit_price": "24.50", "quantity": 2, "currency": "USD"}
+
+
+def test_the_amount_the_order_works_out_is_allowed(engine):
+    assert engine.decide(intent(amount="49.00"), ORDER).allowed
+
+
+def test_refuse_an_amount_the_order_does_not_give(engine, ledger):
+    r = refused(engine.decide(intent(amount="49.50"), ORDER), Reason.AMOUNT_MISMATCH)
+    assert "2 x 24.50 USD = 49.00 USD" in r.detail and r.recorded and ledger.verify() == 1
+
+
+def test_refuse_a_currency_the_order_does_not_give(engine):
+    refused(engine.decide(intent(), {**ORDER, "currency": "EUR"}), Reason.AMOUNT_MISMATCH)
+
+
+def test_an_amount_over_a_limit_is_refused_for_the_limit_first(engine):
+    refused(engine.decide(intent(amount="470.00"), ORDER), Reason.PER_PAYMENT_LIMIT_EXCEEDED)
+
+
+@pytest.mark.parametrize("order", [{"unit_price": "49.00", "quantity": 0, "currency": "USD"},
+                                   {"unit_price": "49.00", "quantity": True, "currency": "USD"},
+                                   {"unit_price": "49.001", "quantity": 1, "currency": "USD"},
+                                   {"unit_price": "49.00", "quantity": 1},
+                                   "49.00"])
+def test_a_broken_order_refuses(engine, order):
+    refused(engine.decide(intent(), order), Reason.POLICY_ERROR)
+
+
+@pytest.mark.parametrize("order", [Order(Decimal("-49.00"), -1, "USD"), Order(Decimal("49.00"), True, "USD"),
+                                   Order(Decimal("49.00"), 1, "usd"), Order(Decimal("49.004"), 1, "USD")])
+def test_a_ready_order_meets_the_same_rules(engine, order):
+    refused(engine.decide(intent(amount="49.00"), order), Reason.POLICY_ERROR)
+
+
+def test_a_valid_ready_order_is_used_as_given(engine):
+    assert engine.decide(intent(amount="49.00"), Order(Decimal("24.50"), 2, "USD")).allowed
+
+
+def test_a_broken_order_is_recorded_under_the_request_id(engine, ledger):
+    r = refused(engine.decide(intent(), {"unit_price": "49.00", "quantity": 0, "currency": "USD"}),
+                Reason.POLICY_ERROR)
+    assert r.recorded and r.request_id == intent()["request_id"] and ledger.verify() == 1
+    refused(engine.decide(intent(), ORDER), Reason.DUPLICATE_REQUEST_ID)
+
+
 def test_amount_equal_to_per_payment_limit_is_allowed(engine):
     assert engine.decide(intent(amount="60.00")).allowed
 
@@ -36,6 +82,12 @@ def test_refuse_malformed_intent(engine, ledger):
     r = refused(engine.decide(intent(amount="49.001")), Reason.MALFORMED_INTENT)
     assert "decimal places" in r.detail
     assert r.recorded and ledger.verify() == 1
+
+
+def test_a_request_id_with_a_line_separator_does_not_break_the_ledger(engine, ledger):
+    refused(engine.decide(intent(request_id="a\u2028b\u0085c")), Reason.MALFORMED_INTENT)
+    assert ledger.verify() == 1 and ledger.records()[0]["request_id"] == "a\u2028b\u0085c"
+    assert engine.decide(intent()).allowed
 
 
 def test_refuse_malformed_burns_its_request_id(engine):

@@ -6,7 +6,7 @@ A payment agent that only proposes. A policy in code decides. The sandbox key ne
 
 An agent that can pay is as risky as the credential it holds. Give it an API key or a card number, and one wrong step or one prompt injection spends money. Guardrails written into the prompt sit exactly where an attacker can reach them.
 
-Here the agent holds nothing. It fills in an intent (amount, currency, payee or merchant category, purpose, request ID) and hands it over. A policy engine, ordinary Python and not a model, checks the intent against rules the account owner wrote. The sandbox key sits with the gateway, the part that pays, and the gateway acts only on an allowed intent. In this demo the agent and the gateway run in one Python process, so that line is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. Every decision leaves a receipt. A refusal names the rule that failed, and an allowed one records `ok`: all rules passed.
+Here the agent holds nothing. It fills in an intent (amount, currency, payee or merchant category, purpose) and hands it over. The request ID comes from the task and is set by code, so the agent cannot choose it. A policy engine, ordinary Python and not a model, checks the intent against rules the account owner wrote. The sandbox key sits with the gateway, the part that pays, and the gateway acts only on an allowed intent. In this demo the agent and the gateway run in one Python process, so that line is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. Every decision leaves a receipt. A refusal names the rule that failed, and an allowed one records `ok`: all rules passed.
 
 The policy design is taken from Usenami Signer, our Rust signing service for trading agents ([github.com/namixai/signer](https://github.com/namixai/signer)). This repository is a new build of the same idea, in Python, for payments.
 
@@ -72,9 +72,12 @@ The rules run in this order, and the first one that fails is the reason on the r
 | its merchant category is listed, when the policy lists categories | `merchant_category_not_allowed` |
 | amount is at most `per_payment` | `per_payment_limit_exceeded` |
 | amount plus what was already allowed this UTC day is at most `daily` | `daily_limit_exceeded` |
+| amount and currency are the order's, unit price times quantity, when the step has an order | `amount_mismatch` |
 | balance minus amount stays at or above `min_balance` | `balance_unavailable`, `below_min_balance` |
 
 When something breaks, the engine refuses. A ledger that cannot be read, does not verify or cannot be written gives `ledger_unavailable`, a rule that raises an error gives `policy_error`, and a balance that cannot be read gives `balance_unavailable`. No payment is allowed before its receipt is on disk.
+
+The agent proposes the amount, but code works it out too. Each scenario step carries the owner's order (unit price, quantity, currency), and the engine refuses any other amount. That check runs after the limits, so the annual 470.00 in step 2 is still refused by the per-payment limit.
 
 A currency table can also set `approve_above`. An allowed payment above it is not paid: the gateway writes it to the ledger as awaiting approval, and it is paid only after a person runs `python -m intent_pay approve --policy <file> --receipt <n> --by <name>`. The agent has no tool for that. The command pays with the provider that held the payment, and if that payment fails or the process stops before it, running the command again pays it; after one payment of the receipt goes through, nothing more is paid. Payments within the threshold run without approval, and the demo policies set no threshold.
 
