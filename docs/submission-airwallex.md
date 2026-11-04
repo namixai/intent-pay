@@ -50,7 +50,7 @@ Python 3.11 or newer. No keys are needed: the demo replays the recorded answers 
     python -m pip install -e .
     python -m intent_pay.web --scenario scenarios/airwallex-demo.json
 
-Then open http://127.0.0.1:8765 and run the four steps. The README explains how to run them against your own sandbox with --sandbox. There are 219 tests, and a mutation check breaks the rules 77 ways and finds a failing test for each.
+Then open http://127.0.0.1:8765 and run the four steps. The README explains how to run them against your own sandbox with --sandbox. There are 273 tests, and a mutation check breaks the rules 104 ways and finds a failing test for each.
 
 ## What differs from our idea, and what we did not do
 
@@ -77,5 +77,5 @@ Before pasting, replace `VIDEO_URL` with the uploaded video's link.
 | 49.00 and 470.00 USD | [scenarios/airwallex-demo.json](../scenarios/airwallex-demo.json) |
 | The four steps, LIMIT_EXCEEDED, 2026-11-02 | [docs/runs/2026-11-02-airwallex-sandbox.txt](runs/2026-11-02-airwallex-sandbox.txt) |
 | The controls in the card answer | [tests/fixtures/airwallex/pay-cleared.json](../tests/fixtures/airwallex/pay-cleared.json) |
-| 219 tests | [docs/runs/2026-11-02-tests.txt](runs/2026-11-02-tests.txt) |
-| 77 mutations, none uncaught | [docs/runs/2026-11-02-mutations.txt](runs/2026-11-02-mutations.txt) |
+| 273 tests | [docs/runs/2026-11-04-tests.txt](runs/2026-11-04-tests.txt) |
+| 104 mutations, none uncaught | [docs/runs/2026-11-04-mutations.txt](runs/2026-11-04-mutations.txt) |

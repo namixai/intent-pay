@@ -99,7 +99,7 @@ The PayPal adapter uses Orders v2. An allowed intent becomes an order, with the 
 
 The default demo replays answers we recorded from the PayPal sandbox, with keys, tokens and card fields removed, so a judge can run it with no keys. One flag, --sandbox, runs the same steps against a live sandbox app.
 
-Every refusal has its own test. tools/mutate.py breaks the rules one at a time on a copy of the code and checks that a test fails for each: 219 tests, 77 mutations, none uncaught.
+Every refusal has its own test. tools/mutate.py breaks the rules one at a time on a copy of the code and checks that a test fails for each: 273 tests, 104 mutations, none uncaught.
 
 ## Challenges we ran into
 
@@ -148,9 +148,9 @@ Video link: the YouTube link, once it is uploaded.
 
 | Number | Source |
 |---|---|
-| 49.00 and 470.00 USD, the four outcomes | [scenarios/paypal-demo.json](../scenarios/paypal-demo.json), run in [docs/runs/2026-11-02-agent.txt](runs/2026-11-02-agent.txt) |
-| 219 tests | [docs/runs/2026-11-02-tests.txt](runs/2026-11-02-tests.txt) |
-| 77 mutations, none uncaught | [docs/runs/2026-11-02-mutations.txt](runs/2026-11-02-mutations.txt) |
+| 49.00 and 470.00 USD, the four outcomes | [scenarios/paypal-demo.json](../scenarios/paypal-demo.json), run in [docs/runs/2026-11-04-agent.txt](runs/2026-11-04-agent.txt) |
+| 273 tests | [docs/runs/2026-11-04-tests.txt](runs/2026-11-04-tests.txt) |
+| 104 mutations, none uncaught | [docs/runs/2026-11-04-mutations.txt](runs/2026-11-04-mutations.txt) |
 | The run against the PayPal sandbox, 2026-10-28 | [docs/runs/2026-10-28-paypal-sandbox-ledger.txt](runs/2026-10-28-paypal-sandbox-ledger.txt) |
 | The run against the Airwallex sandbox, 2026-11-02 | [docs/runs/2026-11-02-airwallex-sandbox.txt](runs/2026-11-02-airwallex-sandbox.txt) |
 | First commit, 2026-10-27 | `git log --reverse` |
