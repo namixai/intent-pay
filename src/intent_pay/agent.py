@@ -286,6 +286,8 @@ def summary(seen: Mapping[str, Any], provider: str = "paypal") -> str:
     if seen.get("decision") != "allow":
         return f"Refused by the owner's policy ({seen.get('reason')}): {seen.get('detail')}. Nothing was sent to {name}."
     payment = seen.get("payment") or {}
+    if payment.get("status") == "AWAITING_APPROVAL":
+        return "The policy allowed it, and it now waits for a person to approve it. Nothing was paid yet."
     if payment.get("ok"):
         what = "capture" if provider == "paypal" else "card"
         return f"Paid. {name} {what} {payment.get('reference')}, status {payment.get('status')}."

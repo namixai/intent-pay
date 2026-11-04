@@ -45,7 +45,11 @@ DECISION = "decision"
 EXECUTION = "execution"
 # forced_charge: a vendor charging an allowed payment's card directly, in a sandbox simulation.
 FORCED_CHARGE = "forced_charge"
-OPERATIONS = ("pay", "refund", FORCED_CHARGE)
+# await_approval: an allowed payment above the policy's approve_above, held until a person approves it.
+# approval: that person's yes, written before the payment is made.
+AWAIT_APPROVAL = "await_approval"
+APPROVAL = "approval"
+OPERATIONS = ("pay", "refund", FORCED_CHARGE, AWAIT_APPROVAL, APPROVAL)
 
 _PATH_LOCKS: dict[str, threading.Lock] = {}
 _PATH_LOCKS_GUARD = threading.Lock()

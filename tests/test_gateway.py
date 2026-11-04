@@ -12,6 +12,7 @@ from decimal import Decimal
 import pytest
 
 from conftest import POLICY, intent
+from intent_pay.adapters.airwallex import AirwallexClient, AirwallexConfig, AirwallexPayer
 from intent_pay.adapters.http import ReplayTransport
 from intent_pay.adapters.paypal import CardSource, PayPalClient, PayPalConfig, PayPalPayer
 from intent_pay.gateway import Gateway, GatewayError
@@ -20,6 +21,7 @@ from intent_pay.policy import Engine, Policy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 FIX = ROOT / "tests" / "fixtures" / "paypal"
+AIRWALLEX_FIX = ROOT / "tests" / "fixtures" / "airwallex"
 SECRET = "client-secret-never-printed"
 CARD_NUMBER = "4012888888881881"
 CAPTURE = "5S461376DW338105P"  # recorded in pay-completed.json
@@ -34,6 +36,147 @@ def gateway(ledger, clock, cassette=None, exchanges=None):
                        card=CardSource(number=CARD_NUMBER, expiry="2030-12", security_code="123"))
     engine = Engine(Policy.from_mapping(POLICY), ledger, balance=lambda c: Decimal(2000), clock=clock)
     return Gateway(engine, PayPalPayer(PayPalClient(cfg, transport)), clock=clock), transport
+
+
+def held_gateway(ledger, clock, cassette=None):
+    policy = {**POLICY, "currencies": {**POLICY["currencies"],
+                                        "USD": {**POLICY["currencies"]["USD"], "approve_above": "50.00"}}}
+    transport = ReplayTransport(FIX / cassette if cassette else {"exchanges": []})
+    cfg = PayPalConfig(client_id="id", client_secret=SECRET,
+                       card=CardSource(number=CARD_NUMBER, expiry="2030-12", security_code="123"))
+    engine = Engine(Policy.from_mapping(policy), ledger, balance=lambda c: Decimal(2000), clock=clock)
+    return Gateway(engine, PayPalPayer(PayPalClient(cfg, transport)), clock=clock), transport
+
+
+def test_a_payment_above_the_threshold_waits_and_makes_no_call(ledger, clock):
+    g, t = held_gateway(ledger, clock)  # an empty cassette: any call would raise
+    out = g.submit(intent(amount="55.00"))
+    assert out.receipt.allowed and out.payment.status == "AWAITING_APPROVAL" and not out.payment.ok
+    assert t.calls == [] and [r.get("operation") for r in ledger.records()] == [None, "await_approval"]
+    assert ledger.verify() == 2
+
+
+def test_a_payment_at_the_threshold_is_paid_without_approval(ledger, clock):
+    g, _ = held_gateway(ledger, clock, "pay-completed.json")
+    assert g.submit(intent(amount="50.00")).payment.ok
+
+
+def test_approval_pays_the_held_payment_once(ledger, clock):
+    g, t = held_gateway(ledger, clock, "pay-completed.json")
+    held = g.submit(intent(amount="55.00"))
+    out = g.approve(held.receipt.seq, "Alex")
+    assert out.payment.ok and out.payment.status == "COMPLETED"
+    ops = [(r.get("operation"), r.get("detail")) for r in ledger.records() if r["kind"] == "execution"]
+    assert [o for o, _ in ops] == ["await_approval", "approval", "pay"] and ops[1][1] == "approved by Alex"
+    with pytest.raises(GatewayError, match="already approved"):
+        g.approve(held.receipt.seq, "Alex")
+    assert ledger.verify() == 4
+
+
+def test_only_a_held_payment_can_be_approved(ledger, clock):
+    g, _ = held_gateway(ledger, clock, "pay-completed.json")
+    paid = g.submit(intent())
+    refused = g.submit(intent(request_id="req-2", amount="490.00", billing="annual"))
+    with pytest.raises(GatewayError, match="not waiting for approval"):
+        g.approve(paid.receipt.seq, "Alex")
+    with pytest.raises(GatewayError, match="not an allowed decision"):
+        g.approve(refused.receipt.seq, "Alex")
+    with pytest.raises(GatewayError, match="name of the person"):
+        g.approve(paid.receipt.seq, " ")
+
+
+class Stop(BaseException):
+    """Stands for the process stopping: the gateway does not catch it."""
+
+
+class OtherPayer:
+    provider = "airwallex"
+
+    def pay(self, intent, receipt):
+        raise AssertionError("a payment held for another provider must not reach this payer")
+
+
+def test_approval_goes_only_to_the_provider_that_held_the_payment(ledger, clock):
+    g, _ = held_gateway(ledger, clock, "pay-completed.json")
+    held = g.submit(intent(amount="55.00"))
+    with pytest.raises(GatewayError, match="held for paypal, not for airwallex"):
+        Gateway(g.engine, OtherPayer(), clock=clock).approve(held.receipt.seq, "Alex")
+    assert [r.get("operation") for r in ledger.records()] == [None, "await_approval"]
+    assert g.approve(held.receipt.seq, "Alex").payment.ok
+
+
+def test_an_approved_payment_that_failed_is_paid_by_approving_again(ledger, clock):
+    g, _ = held_gateway(ledger, clock, "pay-completed.json")
+    held = g.submit(intent(amount="55.00"))
+    transport = g.payer.client.transport
+    def down(*args):
+        raise ConnectionError("sandbox unreachable")
+    g.payer.client.transport = down
+    assert g.approve(held.receipt.seq, "Alex").payment.status == "ERROR"
+    g.payer.client.transport = transport
+    again = g.approve(held.receipt.seq, "Sam")
+    assert again.payment.ok and "approved earlier as #3" in again.note
+    with pytest.raises(GatewayError, match="already approved and paid"):
+        g.approve(held.receipt.seq, "Alex")
+    ops = [(r["operation"], r["ok"]) for r in ledger.records() if r["kind"] == "execution"]
+    assert ops == [("await_approval", False), ("approval", True), ("pay", False), ("pay", True)]
+    assert ledger.verify() == 5
+
+
+def test_a_process_stopped_after_the_approval_is_finished_by_approving_again(ledger, clock):
+    g, t = held_gateway(ledger, clock, "pay-completed.json")
+    held = g.submit(intent(amount="55.00"))
+    def stop(*args):
+        raise Stop()
+    g.payer.pay = stop
+    with pytest.raises(Stop):
+        g.approve(held.receipt.seq, "Alex")
+    assert [r.get("operation") for r in ledger.records()] == [None, "await_approval", "approval"]
+    del g.payer.pay
+    assert g.approve(held.receipt.seq, "Alex").payment.ok
+    assert [r.get("operation") for r in ledger.records()] == [None, "await_approval", "approval", "pay"]
+    assert t.finished
+
+
+def test_the_approve_command_pays_with_the_provider_that_held_it(tmp_path, capsys, clock):
+    from intent_pay.__main__ import main
+    policy = tmp_path / "p.toml"
+    policy.write_text('merchant_categories = ["5734", "7372"]\n[currencies.USD]\n'
+                      'per_payment = "60.00"\ndaily = "100.00"\napprove_above = "40.00"\n')
+    ledger = Ledger(tmp_path / "l.jsonl")
+    loaded = Policy.load(policy)
+    payer = AirwallexPayer(AirwallexClient(AirwallexConfig("replay", "replay"), ReplayTransport({"exchanges": []})), loaded)
+    held = Gateway(Engine(loaded, ledger, clock=clock), payer, clock=clock).submit(intent(merchant_category="7372"))
+    assert held.payment.provider == "airwallex" and held.payment.status == "AWAITING_APPROVAL"
+    # The recording's balance read belongs to the decision, which approval does not repeat.
+    cassette = json.loads((AIRWALLEX_FIX / "pay-cleared.json").read_text(encoding="utf-8"))
+    cassette["exchanges"] = [e for e in cassette["exchanges"] if "/balances/" not in e["request"]["path"]]
+    (tmp_path / "c.json").write_text(json.dumps(cassette), encoding="utf-8")
+    args = ["--env", str(tmp_path / "none"), "--ledger", str(ledger.path), "approve", "--policy", str(policy),
+            "--receipt", str(held.receipt.seq), "--by", "Alex", "--replay", str(tmp_path / "c.json")]
+    assert main(args) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["payment"]["provider"] == "airwallex" and out["payment"]["ok"]
+
+
+def test_the_approve_command_pays_a_held_payment(tmp_path, capsys):
+    from intent_pay.__main__ import main
+    policy = tmp_path / "p.toml"
+    policy.write_text('merchant_categories = ["5734", "7372"]\n[currencies.USD]\n'
+                      'per_payment = "60.00"\ndaily = "100.00"\napprove_above = "50.00"\n')
+    proposal = tmp_path / "i.json"
+    proposal.write_text(json.dumps(intent(amount="55.00", payee=None)))
+    common = ["--env", str(tmp_path / "none"), "--ledger", str(tmp_path / "l.jsonl")]
+    cassette = str(FIX / "pay-completed.json")
+    assert main([*common, "pay", "--policy", str(policy), "--intent", str(proposal), "--replay", cassette]) == 0
+    assert json.loads(capsys.readouterr().out)["payment"]["status"] == "AWAITING_APPROVAL"
+    assert main([*common, "approve", "--policy", str(policy), "--receipt", "1", "--by", "Alex", "--replay", cassette]) == 0
+    assert json.loads(capsys.readouterr().out)["payment"]["status"] == "COMPLETED"
+
+
+def test_a_threshold_leaves_the_policy_hash_of_policies_without_one_alone():
+    with_none = Policy.from_mapping(POLICY)
+    assert "approve_above" not in json.dumps(with_none.to_dict())
 
 
 def test_refused_proposal_makes_no_sandbox_call(ledger, clock):

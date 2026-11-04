@@ -12,3 +12,4 @@ merchant_categories = ["5734", "7372"]   # Visa MCC 5734 software stores, 7372 p
 per_payment = "60.00"     # the most one payment may be
 daily = "100.00"          # the most all payments allowed on one UTC day may add up to
 min_balance = "1000.00"   # the cash reserve: refuse anything that would leave less than this
+# approve_above = "50.00" # optional: an allowed payment above this waits for a person (python -m intent_pay approve)
