@@ -60,7 +60,7 @@ We did not build on the AWS starter kits: our own Python gateway, with the same 
 
 LIMIT_EXCEEDED does not say which limit applied: 470.00 is over all three on the card. We sent the currency and merchant category controls and saw them come back, but did not run a decline on them.
 
-The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. An outside agent, a Grok bot, has used the agent's two tools through a remote MCP server, but in the PayPal sandbox only ([docs/runs/outside-agent/](runs/outside-agent/)): the MCP server does not run the Airwallex scenario yet. The Claude mode is tested against a stand-in client and has not run against the API yet.
+The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. An outside agent, a Grok bot, has used the agent's two tools through a remote MCP server, but in the PayPal sandbox only ([docs/runs/outside-agent/](runs/outside-agent/)). It did four tasks and made two proposals: one completed, one declined by the sandbox. The injection and the retry never reached the policy, because the bot proposed nothing for them. The MCP server does not run the Airwallex scenario yet. The Claude mode is tested against a stand-in client and has not run against the API yet.
 
 ## Team
 
