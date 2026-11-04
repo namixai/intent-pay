@@ -17,7 +17,8 @@ The server speaks MCP's Streamable HTTP transport, answering each POST with JSON
 event stream), on 127.0.0.1 only. The endpoint is /mcp/<token>, or /mcp with the header
 `Authorization: Bearer <token>`. The token is INTENT_PAY_MCP_TOKEN, or a new one printed at
 start. Anything else gets 404, and a request that carries an Origin header not allowed with
---allow-origin gets 403. Every call and its answer go to a journal file; headers, the token and
+--allow-origin gets 403. After initialize, an MCP-Protocol-Version header naming a version the
+server does not speak gets 400. Every call and its answer go to a journal file; headers, the token and
 keys never do.
 """
 
@@ -84,11 +85,12 @@ class Run:
         total = len(self.scenario.steps)
         if self.index + 1 >= total:
             return {"url": TASKS_URL, "text": f"All {total} tasks are done. There is nothing more to do."}, False
-        self.index += 1
-        step = self.scenario.step(self.index, self.run)
-        record = None if self.record is None else self.record / f"step-{self.index + 1}.json"
+        nxt = self.index + 1
+        step = self.scenario.step(nxt, self.run)
+        record = None if self.record is None else self.record / f"step-{nxt + 1}.json"
+        # The gateway first: if it cannot be made, the task stays unopened and the next read tries it again.
         gateway = self.gateway_for(self.scenario, step, self.ledger, self.sandbox, record=record)
-        self.tools = StepTools(step, gateway, self.scenario.provider)
+        self.index, self.tools = nxt, StepTools(step, gateway, self.scenario.provider)
         self.show(f"Task {self.index + 1}: {step['title']}")
         return {"url": TASKS_URL, "text": f"Task {self.index + 1} of {total}. {step['task']}"}, False
 
@@ -216,6 +218,14 @@ def make_handler(server: Server, token: str, origins: frozenset[str] = frozenset
                 return
             if isinstance(message, list):
                 self._send(400, _error(None, -32600, "batches are not supported"))
+                return
+            # After initialize the client names the version it agreed to; one we do not speak is refused.
+            # An initialize itself is answered whatever its header says, since its body negotiates.
+            version = self.headers.get("MCP-Protocol-Version")
+            negotiating = isinstance(message, dict) and message.get("method") == "initialize"
+            if version is not None and version not in PROTOCOL_VERSIONS and not negotiating:
+                self._send(400, _error(message.get("id") if isinstance(message, dict) else None, -32600,
+                                       f"unsupported MCP-Protocol-Version {version!r}"))
                 return
             try:
                 answer = server.handle(message)

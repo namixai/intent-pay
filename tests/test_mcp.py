@@ -126,6 +126,21 @@ def test_a_page_from_another_task_is_not_there(server):
     assert is_error and "no page" in seen["error"]
 
 
+def test_a_task_whose_gateway_cannot_be_made_stays_unopened(tmp_path):
+    made = []
+    def fails_once(scenario, step, ledger, sandbox, record=None):
+        made.append(step["title"])
+        if len(made) == 1:
+            raise OSError("no recording")
+        return keyed_gateway(scenario, step, ledger, sandbox, record)
+    run = Run(Scenario.load(PAYPAL), Ledger(tmp_path / "l.jsonl"), "run1", gateway_for=fails_once)
+    with pytest.raises(OSError):
+        run.call("read_page", {"url": TASKS_URL})
+    assert run.tools is None and run.index == -1
+    task, is_error = run.call("read_page", {"url": TASKS_URL})
+    assert not is_error and task["text"].startswith("Task 1 of 4.") and made == ["Monthly renewal"] * 2
+
+
 def test_a_scenario_step_without_an_agent_task_is_refused(tmp_path):
     with pytest.raises(AgentError, match="not an agent task"):
         Run(Scenario.load(ROOT / "scenarios" / "airwallex-demo.json"), Ledger(tmp_path / "l.jsonl"), "r")
@@ -176,6 +191,16 @@ def test_the_endpoint_answers_only_with_the_token(endpoint, capsys):
 def test_an_origin_is_refused_unless_allowed(endpoint):
     assert post(endpoint, f"/mcp/{TOKEN}", PING, {"Origin": "https://evil.example"})[0] == 403
     assert post(endpoint, f"/mcp/{TOKEN}", PING, {"Origin": "https://ok.example"})[0] == 200
+
+
+def test_an_unsupported_protocol_version_header_is_refused(endpoint):
+    path = f"/mcp/{TOKEN}"
+    assert post(endpoint, path, PING, {"MCP-Protocol-Version": "2025-06-18"})[0] == 200
+    status, answer = post(endpoint, path, PING, {"MCP-Protocol-Version": "2099-01-01"})
+    assert status == 400 and answer["error"]["code"] == -32600 and answer["id"] == 1
+    init = {"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {"protocolVersion": "2099-01-01"}}
+    status, answer = post(endpoint, path, init, {"MCP-Protocol-Version": "2099-01-01"})
+    assert status == 200 and answer["result"]["protocolVersion"] == PROTOCOL_VERSIONS[0]
 
 
 def test_notifications_batches_and_broken_bodies(endpoint):
