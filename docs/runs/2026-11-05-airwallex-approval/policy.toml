@@ -1,0 +1,9 @@
+# The Airwallex sandbox policy (policies/airwallex-sandbox.toml) with one line added: approve_above.
+# Every number here is an example. A payment the rules allow that is above 40.00 USD waits for a person.
+merchant_categories = ["5734", "7372"]
+
+[currencies.USD]
+per_payment = "60.00"
+daily = "100.00"
+min_balance = "1000.00"
+approve_above = "40.00"

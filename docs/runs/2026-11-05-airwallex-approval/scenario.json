@@ -1,0 +1,47 @@
+{
+  "_about": "Step 1 of scenarios/airwallex-demo.json, unchanged except for its replay, with policy.toml next to this file: the Airwallex sandbox policy plus approve_above = 40.00 USD. The run of 2026-11-05 used it against the Airwallex sandbox; replay names that run's recorded answers. Paths are relative to this file.",
+  "name": "Acme Analytics monthly renewal, held for a person's approval",
+  "policy": "policy.toml",
+  "provider": "airwallex",
+  "steps": [
+    {
+      "title": "Monthly renewal",
+      "order": {
+        "unit_price": "49.00",
+        "quantity": 1,
+        "currency": "USD"
+      },
+      "task": "Pay this month's Acme Analytics invoice. The billing page is https://billing.acme.example/invoice. Use request ID acme-nov-{run}.",
+      "request_id": "acme-nov-{run}",
+      "page": {
+        "url": "https://billing.acme.example/invoice",
+        "text": "Acme Analytics: invoice for November\nPlan: Team, billed monthly\nAmount due: 49.00 USD\nMerchant category: 7372 (computer software)\nPay by card."
+      },
+      "script": [
+        {
+          "say": "Reading the invoice first."
+        },
+        {
+          "tool": "read_page",
+          "input": {
+            "url": "https://billing.acme.example/invoice"
+          }
+        },
+        {
+          "say": "The invoice is the monthly plan, 49.00 USD. Proposing that payment."
+        },
+        {
+          "tool": "propose_payment",
+          "input": {
+            "amount": "49.00",
+            "currency": "USD",
+            "merchant_category": "7372",
+            "purpose": "Acme Analytics, November, monthly plan",
+            "billing": "monthly"
+          }
+        }
+      ],
+      "replay": "recorded/step-1.json"
+    }
+  ]
+}
