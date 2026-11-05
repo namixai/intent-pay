@@ -10,6 +10,8 @@ source .venv/bin/activate
 python -m pip install -e .
 ```
 
+On Windows, activate with `.venv\Scripts\activate` instead of the `source` line.
+
 ## 1. The demo page, no keys
 
 ```bash
@@ -30,33 +32,35 @@ What to expect, as in our sandbox runs listed in [docs/runs/](runs/): step 1 is 
 
 ## 3. Your own agent, over MCP
 
-Here your agent takes the place of the scripted one. It gets two tools, `read_page` and `propose_payment`, and nothing else: no key, no card.
+Here your agent takes the place of the scripted one. The server gives it two tools, `read_page` and `propose_payment`, and no key or card. Your client may have tools of its own, such as reading files. Opened in this checkout, it could read `judges-sandbox.env` and call PayPal without the gateway, so open the client in another folder.
 
 Start the server:
 
 ```bash
-INTENT_PAY_MCP_TOKEN=<a long random string> python -m intent_pay.mcp
+python -m intent_pay.mcp
 ```
 
-It replays the PayPal recordings, like the page in section 1. Add `--sandbox --env judges-sandbox.env` to pay in the live sandbox instead; while that file's values are empty, the server stops at start with `missing environment variable(s)`. It listens on 127.0.0.1:8765, the same port as the demo page, so stop the page first, or pass `--port 8766` and use that port in the URLs below. At start it prints the paths of its ledger and journal.
+At start it prints a new token, at the end of the `endpoint` line after `token`, then the paths of its ledger and journal. To choose the token yourself, set `INTENT_PAY_MCP_TOKEN` before starting; the server then does not print it.
 
-Connect an MCP client that can reach a server over HTTP. In Cursor, put this into `.cursor/mcp.json` in your project or into `~/.cursor/mcp.json` (format from [Cursor's MCP docs](https://cursor.com/docs/mcp)):
+It replays the PayPal recordings, like the page in section 1. Add `--sandbox --env judges-sandbox.env` to pay in the live sandbox instead; while that file's values are empty, the server stops at start with `missing environment variable(s)`. It listens on 127.0.0.1:8765, the same port as the demo page, so stop the page first, or pass `--port 8766` and use that port in the URLs below.
+
+Connect an MCP client that can reach a server over HTTP. In Cursor, put this into `.cursor/mcp.json` in a project outside this checkout, or into `~/.cursor/mcp.json` (format from [Cursor's MCP docs](https://cursor.com/docs/mcp)):
 
 ```json
 {
   "mcpServers": {
     "intent-pay": {
       "url": "http://127.0.0.1:8765/mcp",
-      "headers": { "Authorization": "Bearer <the same string>" }
+      "headers": { "Authorization": "Bearer <the token>" }
     }
   }
 }
 ```
 
-In Claude Code:
+In Claude Code, from a folder outside this checkout:
 
 ```bash
-claude mcp add --transport http intent-pay http://127.0.0.1:8765/mcp --header "Authorization: Bearer <the same string>"
+claude mcp add --transport http intent-pay http://127.0.0.1:8765/mcp --header "Authorization: Bearer <the token>"
 ```
 
 Give the agent these instructions, as its rules or as your first message. They are the ones the outside agent had on 2026-11-04 ([docs/runs/outside-agent/](runs/outside-agent/)):
@@ -111,4 +115,4 @@ If your client gets HTTP 403, it sent an `Origin` header. The server prints the 
 
 ### What we checked
 
-On 2026-11-05 at commit baea100 we ran task 1 through this server on the recordings with a small stand-in MCP client written in Python. It got the answer above, and the ledger verified with 2 records. We have not run Cursor or Claude Code against the server ourselves. The outside agent of 2026-11-04 ran on a bot platform, and its MCP client introduced itself as Cursor 1.0.0.
+On 2026-11-05 at commit baea100 we ran task 1 through this server on the recordings with a small stand-in MCP client written in Python. It got the answer above, and the ledger verified with 2 records. A second run that day started the server with no token set and connected with the token it printed, with the same result. We have not run Cursor or Claude Code against the server ourselves. The outside agent of 2026-11-04 ran on a bot platform, and its MCP client introduced itself as Cursor 1.0.0.
