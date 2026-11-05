@@ -1,4 +1,4 @@
-Commit 3353a3e, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-04.
+Commit f98216b, fresh clone, empty environment, macOS, Python 3.13.1, 2026-11-04.
 $ python -m venv .venv
 $ python -m pip install -e ".[dev]"
 $ python tools/mutate.py
@@ -123,4 +123,14 @@ red   MCP answers a notification
 red   MCP takes a body of any size
 red   MCP error closes the connection
 red   MCP runs a step that has no agent task
-120 mutations, 0 not caught
+red   MCP refusal keeps the connection open
+red   MCP wrong token keeps the connection open
+red   MCP GET refusal keeps the connection open
+red   MCP oversized body keeps the connection open
+red   MCP refusal not logged
+red   MCP refusal log names the path
+red   MCP refused Origin left out of the log
+red   MCP recordings name the scripted agent
+red   recording source ignores its caller
+red   MCP run uses the scripted agent's gateway
+130 mutations, 0 not caught

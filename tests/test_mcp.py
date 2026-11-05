@@ -5,16 +5,17 @@ the four outcomes of the PayPal demo, and an endpoint that answers only with the
 import http.client
 import json
 import pathlib
+import socket
 import threading
 
 import pytest
 
 from intent_pay.adapters import paypal
 from intent_pay.adapters.http import ReplayTransport
-from intent_pay.agent import AgentError, Scenario
+from intent_pay.agent import AgentError, Scenario, sandbox_gateway
 from intent_pay.gateway import Gateway
 from intent_pay.ledger import Ledger
-from intent_pay.mcp import PROTOCOL_VERSIONS, TASKS_URL, Run, Server, make_handler
+from intent_pay.mcp import PROTOCOL_VERSIONS, TASKS_URL, Run, Server, make_handler, mcp_gateway
 from intent_pay.policy import Engine, Policy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -228,3 +229,74 @@ def test_a_get_opens_no_stream(endpoint):
     response.read()
     conn.close()
     assert response.status == 405 and response.getheader("Allow") == "POST"
+
+
+def raw(port, *requests):
+    """Sends the requests on one connection, back to back, and returns all it gets until the server closes."""
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+        sock.sendall(b"".join(requests))
+        data = b""
+        while chunk := sock.recv(65536):
+            data += chunk
+    return data
+
+
+def request(method, path, body=b"", headers=()):
+    head = [f"{method} {path} HTTP/1.1", "Host: 127.0.0.1", f"Content-Length: {len(body)}", *headers]
+    return ("\r\n".join(head) + "\r\n\r\n").encode() + body
+
+
+PING_BODY = json.dumps(PING).encode()
+
+
+@pytest.mark.parametrize("refused", [
+    request("POST", "/mcp/wrong", PING_BODY),
+    request("POST", f"/mcp/{TOKEN}", PING_BODY, ["Origin: https://evil.example"]),
+    request("GET", f"/mcp/{TOKEN}", PING_BODY),
+    request("DELETE", f"/mcp/{TOKEN}", PING_BODY),
+], ids=["wrong path", "foreign origin", "get", "delete"])
+def test_a_refusal_closes_the_connection_so_its_body_is_not_read_as_the_next_request(endpoint, refused):
+    # Through a tunnel, the next request on a kept-alive connection may be another client's.
+    data = raw(endpoint, refused, request("POST", f"/mcp/{TOKEN}", PING_BODY))
+    assert data.count(b"HTTP/1.1 ") == 1 and b"Connection: close" in data
+    assert b" 501 " not in data and b" 400 " not in data
+
+
+def test_a_body_too_large_to_read_closes_the_connection(endpoint):
+    conn = http.client.HTTPConnection("127.0.0.1", endpoint, timeout=5)
+    conn.request("POST", f"/mcp/{TOKEN}", b"x" * (64 * 1024 + 1), {"Content-Type": "application/json"})
+    response = conn.getresponse()
+    response.read()
+    conn.close()
+    assert response.status == 413 and response.getheader("Connection") == "close"
+
+
+def test_an_answered_request_keeps_the_connection_open(endpoint):
+    with socket.create_connection(("127.0.0.1", endpoint), timeout=5) as sock:
+        sock.sendall(request("POST", f"/mcp/{TOKEN}", PING_BODY) * 2)
+        data = b""
+        while data.count(b'"result"') < 2:
+            data += sock.recv(65536)
+    assert data.count(b"HTTP/1.1 200") == 2 and b"Connection: close" not in data
+
+
+def test_refusals_are_logged_with_code_and_method_but_not_the_path(endpoint, capsys):
+    post(endpoint, "/mcp/wrong-path", PING)
+    post(endpoint, f"/mcp/{TOKEN}", PING, {"Origin": "https://evil.example"})
+    post(endpoint, f"/mcp/{TOKEN}", [PING])
+    err = capsys.readouterr().err
+    assert "refused 404 POST" in err and "refused 403 POST origin 'https://evil.example'" in err
+    assert "refused 400 POST" in err
+    assert TOKEN not in err and "wrong-path" not in err and "/mcp" not in err
+
+
+def test_recordings_name_the_program_that_made_them(tmp_path):
+    scenario = Scenario.load(PAYPAL)
+    env = {"PAYPAL_CLIENT_ID": "id", "PAYPAL_CLIENT_SECRET": SECRET, "PAYPAL_CARD_VAULT_ID": "vault"}
+    def source(make):
+        gateway = make(scenario, scenario.step(0, "run1"), Ledger(tmp_path / "l.jsonl"), True,
+                       record=tmp_path / "c.json", env=env)
+        return gateway.payer.client.transport.cassette["_source"]
+    assert "by python -m intent_pay.mcp --record," in source(mcp_gateway)
+    assert "by python -m intent_pay.agent --record," in source(sandbox_gateway)
+    assert Run(scenario, Ledger(tmp_path / "l.jsonl"), "run1").gateway_for is mcp_gateway
