@@ -165,6 +165,8 @@ With Airwallex, every allowed payment gets its own virtual card, and the card ca
 
 So every rule a card can hold is written down twice: our engine checks it before the card exists, and the gateway sets it as the card's control at Airwallex. Airwallex's answer to the card request carries the same controls back. In the sandbox nobody else charges the card, so the gateway plays the vendor with Airwallex's issuing simulation: it authorizes the amount on the new card, then captures it.
 
+The agent has no Airwallex tool: it calls neither Airwallex's API nor its developer MCP server. Its two tools are the same as with PayPal, `read_page` and `propose_payment`. Only the gateway holds the Airwallex key and makes these calls.
+
 The four steps of [scenarios/airwallex-demo.json](scenarios/airwallex-demo.json):
 
 1. The agent proposes the monthly 49.00 USD. The policy allows it, the card is issued, and the simulated authorization and capture go through.
