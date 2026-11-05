@@ -12,7 +12,7 @@ The policy design is taken from Usenami Signer, our Rust signing service for tra
 
 ## Status
 
-Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. On 2026-11-04 an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: [docs/runs/outside-agent/](docs/runs/outside-agent/). The Claude agent mode is tested against a stand-in client, not yet against the API.
+Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. On 2026-11-04 an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: [docs/runs/outside-agent/](docs/runs/outside-agent/). The Claude agent mode is tested against a stand-in client, not yet against the API. [docs/runs/](docs/runs/) lists what each run left behind and how to check it.
 
 ## Run the demo
 
@@ -165,6 +165,8 @@ With Airwallex, every allowed payment gets its own virtual card, and the card ca
 
 So every rule a card can hold is written down twice: our engine checks it before the card exists, and the gateway sets it as the card's control at Airwallex. Airwallex's answer to the card request carries the same controls back. In the sandbox nobody else charges the card, so the gateway plays the vendor with Airwallex's issuing simulation: it authorizes the amount on the new card, then captures it.
 
+The agent has no Airwallex tool: it calls neither Airwallex's API nor its developer MCP server. Its two tools are the same as with PayPal, `read_page` and `propose_payment`. Only the gateway holds the Airwallex key and makes these calls.
+
 The four steps of [scenarios/airwallex-demo.json](scenarios/airwallex-demo.json):
 
 1. The agent proposes the monthly 49.00 USD. The policy allows it, the card is issued, and the simulated authorization and capture go through.
@@ -207,7 +209,7 @@ python -m pytest
 
 On Windows, activate with `.venv\Scripts\activate` instead of the `source` line.
 
-Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each.
+Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each. On a fresh clone of commit f98216b, 297 tests passed and all 130 mutations were caught: [docs/runs/2026-11-04-tests.txt](docs/runs/2026-11-04-tests.txt), [docs/runs/2026-11-04-mutations.txt](docs/runs/2026-11-04-mutations.txt).
 
 ## Keys
 
