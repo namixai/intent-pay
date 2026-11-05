@@ -302,7 +302,8 @@ def test_scenario_runs_the_four_submitted_steps(tmp_path):
     assert decisions[0]["payment"]["status"] == "CLEARED" and "payment" not in decisions[1]
     charge = [e for e in steps[2] if e["kind"] == "vendor_charge"][0]
     assert charge["compare"] == {"request_id": "acme-dec-t", "receipt": 3, "reason": "per_payment_limit_exceeded",
-                                 "expected": "LIMIT_EXCEEDED", "card": "LIMIT_EXCEEDED", "match": True}
+                                 "expected": "LIMIT_EXCEEDED", "card": "LIMIT_EXCEEDED", "match": True,
+                                 "label": "LIMIT REJECTED"}
     assert [e["kind"] for e in steps[2]] == ["task", "vendor_charge"]  # no agent, no proposal
     assert "Nothing was sent to Airwallex" in steps[1][-1]["text"]
     assert ledger.verify() == 5
@@ -323,6 +324,23 @@ def test_a_card_that_answers_for_another_reason_does_not_match_the_receipt(tmp_p
                                                 "merchant_category": "7372", "refused_as": "acme-dec-t"}}
     compare = vendor_charge(step, Gateway(Engine(POLICY, ledger), p))[-1]["compare"]
     assert compare["expected"] == "LIMIT_EXCEEDED" and compare["card"] == card and compare["match"] is False
+    assert compare["label"] == "DIFFERENT"
+
+
+def test_a_reason_that_names_one_control_is_the_same_rule(tmp_path):
+    # LIMIT_EXCEEDED stands for both limit rules, so it gets LIMIT REJECTED. A merchant category
+    # decline answers for the one rule that refused the receipt.
+    ledger = Ledger(tmp_path / "l.jsonl")
+    gateway_on(FIXTURES / "pay-cleared.json", ledger).submit({**MONTHLY, "request_id": "acme-nov-t"})
+    refused = gateway_on(FIXTURES / "pay-cleared.json", ledger).submit(
+        {**MONTHLY, "request_id": "acme-gift-t", "merchant_category": "5999"})
+    assert refused.receipt.reason == "merchant_category_not_allowed"
+    t = Fake(LOGIN, (201, {"process_result": "DECLINED", "failure_reason": "MERCHANT_CATEGORY_NOT_ALLOWED",
+                           "card_transaction_lifecycle_id": "lc"}))
+    step = {"task": "vendor", "vendor_charge": {"card_of": "acme-nov-t", "amount": "49.00", "currency": "USD",
+                                                "merchant_category": "5999", "refused_as": "acme-gift-t"}}
+    compare = vendor_charge(step, Gateway(Engine(POLICY, ledger), payer(t)))[-1]["compare"]
+    assert compare["match"] is True and compare["label"] == "SAME RULE"
 
 
 def test_refused_steps_have_no_recording_and_make_no_call(tmp_path):
