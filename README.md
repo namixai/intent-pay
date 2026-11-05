@@ -167,6 +167,8 @@ So every rule a card can hold is written down twice: our engine checks it before
 
 The agent has no Airwallex tool: it calls neither Airwallex's API nor its developer MCP server. Its two tools are the same as with PayPal, `read_page` and `propose_payment`. Only the gateway holds the Airwallex key and makes these calls.
 
+A person approves a payment above the policy's `approve_above`, and until then no card is created ([How the policy decides](#how-the-policy-decides)). The demo policy sets no threshold. [docs/runs/2026-11-05-airwallex-approval/](docs/runs/2026-11-05-airwallex-approval/README.md) is a recorded Airwallex run that sets one.
+
 The four steps of [scenarios/airwallex-demo.json](scenarios/airwallex-demo.json):
 
 1. The agent proposes the monthly 49.00 USD. The policy allows it, the card is issued, and the simulated authorization and capture go through.
