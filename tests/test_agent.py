@@ -320,7 +320,8 @@ def test_cli_runs_the_airwallex_scenario_on_recordings(tmp_path):
                           "--env", str(tmp_path / "none"), "--ledger", str(tmp_path / "l.jsonl"), "--run", "t"],
                          cwd=ROOT, capture_output=True, text=True, env=CLEAN_ENV)
     assert out.returncode == 0, out.stdout + out.stderr
-    assert "DECLINED:LIMIT_EXCEEDED" in out.stdout and "same rule" in out.stdout
+    assert "DECLINED:LIMIT_EXCEEDED" in out.stdout and "): limit rejected" in out.stdout
+    assert "same rule" not in out.stdout
     assert "airwallex not called" in out.stdout and "5 records, chain ok" in out.stdout
 
 
