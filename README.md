@@ -143,13 +143,13 @@ PAYPAL_CARD_NAME=CCREJECT-REFUSED python -m intent_pay pay --policy policies/pay
 
 The cassettes in `tests/fixtures/paypal/` were recorded from the PayPal sandbox on 2026-10-27 with `--record`. Each file's `_source` field says what was sent.
 
-For hackathon judges, [judges-sandbox.env](judges-sandbox.env) is the template for the keys of a PayPal sandbox app and the login of its sandbox business account. With its values filled in, you can skip the setup above:
+For hackathon judges, [judges-sandbox.env](judges-sandbox.env) is the template for the keys of a PayPal sandbox app and the login of its sandbox business account. Its values are filled on submission day from a judge-only sandbox app and revoked after judging. With them filled in, you can skip the setup above:
 
 ```bash
 python -m intent_pay.web --sandbox --env judges-sandbox.env
 ```
 
-While the values are empty, as they are now, the page opens and each step answers `missing environment variable(s)`. The default demo under [Run the demo](#run-the-demo) still needs no keys.
+Until then the values are empty, and the page opens with each step answering `missing environment variable(s)`. The default demo under [Run the demo](#run-the-demo) still needs no keys.
 
 ## Airwallex sandbox
 
