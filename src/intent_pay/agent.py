@@ -441,7 +441,8 @@ def _line(event: Mapping[str, Any], provider: str = "paypal") -> str:
         text = (f"  {'vendor':<9} charges {c.get('amount')} {c.get('currency')} to the card of {c.get('card_of')}, "
                 f"category {c.get('merchant_category')}\n  {'policy':<9} not asked\n  {provider:<9} {_calls(payment)}")
         if compare.get("receipt") is not None:
-            verdict = "same rule" if compare["match"] else "NOT the same rule"
+            # The page's label, in the terminal's case: LIMIT_EXCEEDED does not name the limit.
+            verdict = compare["label"].lower() if compare["match"] else "NOT the same rule"
             text += (f"\n  {'compare':<9} card {compare.get('card')}, receipt #{compare['receipt']} "
                      f"{compare.get('reason')} (card reason {compare.get('expected')}): {verdict}")
         return text
