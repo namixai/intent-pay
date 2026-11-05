@@ -10,8 +10,9 @@ What each run left behind and how to check it yourself. Every file is kept as it
 | [2026-11-04-tests.txt](2026-11-04-tests.txt) | The test run from the same fresh clone: 297 passed. | `python -m pip install -e ".[dev]"`, then `python -m pytest`. |
 | [2026-11-04-mutations.txt](2026-11-04-mutations.txt) | The mutation check from the same fresh clone. It breaks the code 130 ways, one at a time, and names the change each time: 130 mutations, 0 not caught. | `python tools/mutate.py` after the dev install. |
 | [outside-agent/](outside-agent/) | The run of 2026-11-04 in which an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: the server's journal, the ledger and two PayPal sandbox exchanges. Its own [README](outside-agent/README.md) describes the run. | Check the ledger's chain (below): 4 records. |
+| [2026-11-05-airwallex-approval/](2026-11-05-airwallex-approval/) | A payment held for approval in the Airwallex sandbox on 2026-11-05. The policy sets `approve_above = "40.00"` for USD, so the 49.00 USD renewal waited. The run script approved it, an operator approval in sandbox, and only then was a card created and charged: four records. Its own [README](2026-11-05-airwallex-approval/README.md) describes the run. | [How to check](2026-11-05-airwallex-approval/README.md#how-to-check) in its README: the chain (4 records), the policy hash, and a replay on its recordings with no keys. |
 
-The 2026-11-04 files name their commit, Python version and environment on their first line. The 2026-10-28 and 2026-11-02 files do not name a commit.
+The 2026-11-04 files name their commit, Python version and environment on their first line. The 2026-11-05 run names its commit and Python version in its README. The 2026-10-28 and 2026-11-02 files do not name a commit.
 
 ## Checking a ledger's chain
 
