@@ -1,0 +1,452 @@
+{
+  "_source": "recorded from the Airwallex sandbox on 2026-11-05 by python -m intent_pay.agent --record, scenario.json, step 'Monthly renewal'",
+  "recorded": true,
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/authentication/login",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "expires_at": "2026-11-05T13:01:03+0000",
+          "token": "REDACTED"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/balances/current",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "available_amount": 0,
+            "currency": "AED",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "ARS",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "AUD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "BDT",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "BHD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "BOB",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "BRL",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "CAD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "CHF",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "CLP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 10000000,
+            "currency": "CNY",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 10000000,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "COP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "CZK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "DKK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "EGP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 10000000,
+            "currency": "EUR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 10000000,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 10000000,
+            "currency": "GBP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 10000000,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "HKD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "HRK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "HUF",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "IDR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "ILS",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "INR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "JPY",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "KRW",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "LKR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "MAD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "MXN",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "MYR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "NOK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "NPR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "NZD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "PEN",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "PHP",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "PKR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "PLN",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "RON",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "SAR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "SEK",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "SGD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "THB",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "TRY",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 9999951,
+            "currency": "USD",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 9999951,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "UYU",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "VND",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          },
+          {
+            "available_amount": 0,
+            "currency": "ZAR",
+            "pending_amount": 0,
+            "reserved_amount": 0,
+            "total_amount": 0,
+            "prepayment_amount": 0,
+            "account_type": "cash"
+          }
+        ]
+      }
+    }
+  ]
+}

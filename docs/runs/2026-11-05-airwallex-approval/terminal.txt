@@ -1,0 +1,197 @@
+intent-pay dd15e9749e4077f8856001d82dc669d63f2b27b0, Python 3.13.1, started 2026-11-05T12:31:02Z
+
+$ python -m intent_pay.agent --scenario state/approval/scenario.json --sandbox --env <key file> --ledger state/approval/ledger.jsonl --record state/approval/recorded
+Step 1: Monthly renewal
+  task      Pay this month's Acme Analytics invoice. The billing page is https://billing.acme.example/invoice. Use request ID acme-nov-1105123102.
+  agent     Reading the invoice first.
+  reads     https://billing.acme.example/invoice
+  agent     The invoice is the monthly plan, 49.00 USD. Proposing that payment.
+  proposes  49.00 USD, monthly, category 7372, request acme-nov-1105123102
+  policy    ALLOW (ok), receipt #1
+  airwallex AWAITING_APPROVAL
+  agent     The policy allowed it, and it now waits for a person to approve it. Nothing was paid yet.
+
+scripted agent (scenario file); payments: Airwallex sandbox
+ledger state/approval/ledger.jsonl: 2 records, chain ok
+[exit 0]
+
+$ python -m intent_pay --ledger state/approval/ledger.jsonl verify
+{
+  "ledger": "state/approval/ledger.jsonl",
+  "records": 2,
+  "chain": "ok"
+}
+[exit 0]
+
+$ python -m intent_pay --env <key file> --ledger state/approval/ledger.jsonl approve --policy state/approval/policy.toml --receipt 1 --by test operator (operator approval in sandbox) --record state/approval/recorded/approve.json
+{
+  "receipt": {
+    "v": "1",
+    "kind": "decision",
+    "seq": 1,
+    "at": "2026-11-05T12:31:02.225213Z",
+    "decision": "allow",
+    "reason": "ok",
+    "detail": "within every rule of the policy",
+    "request_id": "acme-nov-1105123102",
+    "intent": {
+      "amount": "49.00",
+      "billing": "monthly",
+      "currency": "USD",
+      "merchant_category": "7372",
+      "payee": null,
+      "purpose": "Acme Analytics, November, monthly plan",
+      "request_id": "acme-nov-1105123102"
+    },
+    "policy_hash": "6f91b3782897e1725dfe225151fc0895d869760e23f0a8898d72acf4ee7d0d9d",
+    "prev": "0000000000000000000000000000000000000000000000000000000000000000",
+    "hash": "4ca37def8b1d2e0d819ac785f71b99d3350cbac22af624121a66fa7f2fee22fc"
+  },
+  "payment": {
+    "provider": "airwallex",
+    "operation": "pay",
+    "ok": true,
+    "status": "CLEARED",
+    "reference": "84df3b25-3aae-4678-8d5e-192845f952af",
+    "detail": "card 84df3b25-3aae-4678-8d5e-192845f952af: 49.00 USD authorized and captured, lifecycle 01a1abb1-0f65-7000-9d86-4b23d3010cbf",
+    "steps": [
+      {
+        "call": "find_cardholder",
+        "http": 200,
+        "id": "60bfa580-c60b-4da7-87f4-83fe7eb67eb1",
+        "status": "READY"
+      },
+      {
+        "call": "create_card",
+        "http": 202,
+        "id": "84df3b25-3aae-4678-8d5e-192845f952af",
+        "status": "ACTIVE",
+        "sent": {
+          "allowed_transaction_count": "MULTIPLE",
+          "allowed_currencies": [
+            "USD"
+          ],
+          "transaction_limits": {
+            "currency": "USD",
+            "limits": [
+              {
+                "amount": 60,
+                "interval": "PER_TRANSACTION"
+              },
+              {
+                "amount": 100,
+                "interval": "DAILY"
+              },
+              {
+                "amount": 49,
+                "interval": "ALL_TIME"
+              }
+            ]
+          },
+          "allowed_merchant_categories": [
+            "5734",
+            "7372"
+          ]
+        }
+      },
+      {
+        "call": "authorize",
+        "http": 201,
+        "id": "01a1abb1-0f65-7000-9d86-4b23d3010cbf",
+        "status": "APPROVED"
+      },
+      {
+        "call": "capture",
+        "http": 200,
+        "id": "01a1abb1-0f65-7000-9d86-4b23d3010cbf",
+        "status": "APPROVED"
+      }
+    ]
+  },
+  "execution": {
+    "v": "1",
+    "kind": "execution",
+    "seq": 4,
+    "at": "2026-11-05T12:31:17.368980Z",
+    "decision_seq": 1,
+    "provider": "airwallex",
+    "operation": "pay",
+    "ok": true,
+    "status": "CLEARED",
+    "reference": "84df3b25-3aae-4678-8d5e-192845f952af",
+    "detail": "card 84df3b25-3aae-4678-8d5e-192845f952af: 49.00 USD authorized and captured, lifecycle 01a1abb1-0f65-7000-9d86-4b23d3010cbf",
+    "steps": [
+      {
+        "call": "find_cardholder",
+        "http": 200,
+        "id": "60bfa580-c60b-4da7-87f4-83fe7eb67eb1",
+        "status": "READY"
+      },
+      {
+        "call": "create_card",
+        "http": 202,
+        "id": "84df3b25-3aae-4678-8d5e-192845f952af",
+        "status": "ACTIVE",
+        "sent": {
+          "allowed_transaction_count": "MULTIPLE",
+          "allowed_currencies": [
+            "USD"
+          ],
+          "transaction_limits": {
+            "currency": "USD",
+            "limits": [
+              {
+                "amount": 60,
+                "interval": "PER_TRANSACTION"
+              },
+              {
+                "amount": 100,
+                "interval": "DAILY"
+              },
+              {
+                "amount": 49,
+                "interval": "ALL_TIME"
+              }
+            ]
+          },
+          "allowed_merchant_categories": [
+            "5734",
+            "7372"
+          ]
+        }
+      },
+      {
+        "call": "authorize",
+        "http": 201,
+        "id": "01a1abb1-0f65-7000-9d86-4b23d3010cbf",
+        "status": "APPROVED"
+      },
+      {
+        "call": "capture",
+        "http": 200,
+        "id": "01a1abb1-0f65-7000-9d86-4b23d3010cbf",
+        "status": "APPROVED"
+      }
+    ],
+    "prev": "84794e80a86156a58fc1784c98c31ccdf4de12f7de8babd15169a093948d3285",
+    "hash": "609c5de6d7438c3ac4cae64d4eda1393398628e025f9e03365e1bd0cf632ac68"
+  },
+  "note": "approval recorded as #3"
+}
+[exit 0]
+
+$ python -m intent_pay --env <key file> --ledger state/approval/ledger.jsonl approve --policy state/approval/policy.toml --receipt 1 --by test operator (operator approval in sandbox) --record state/approval/recorded/approve-again.json
+{
+  "error": "GatewayError",
+  "detail": "receipt #1 was already approved and paid"
+}
+[exit 2]
+
+$ python -m intent_pay --ledger state/approval/ledger.jsonl verify
+{
+  "ledger": "state/approval/ledger.jsonl",
+  "records": 4,
+  "chain": "ok"
+}
+[exit 0]
+finished 2026-11-05T12:31:17Z
