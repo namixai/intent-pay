@@ -12,7 +12,7 @@ The policy design is taken from Usenami Signer, our Rust signing service for tra
 
 ## Status
 
-Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. On 2026-11-04 an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: [docs/runs/outside-agent/](docs/runs/outside-agent/). The Claude agent mode is tested against a stand-in client, not yet against the API.
+Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. On 2026-11-04 an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: [docs/runs/outside-agent/](docs/runs/outside-agent/). The Claude agent mode is tested against a stand-in client, not yet against the API. [docs/runs/](docs/runs/) lists what each run left behind and how to check it.
 
 ## Run the demo
 
@@ -207,7 +207,7 @@ python -m pytest
 
 On Windows, activate with `.venv\Scripts\activate` instead of the `source` line.
 
-Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each.
+Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each. On a fresh clone of commit f98216b, 297 tests passed and all 130 mutations were caught: [docs/runs/2026-11-04-tests.txt](docs/runs/2026-11-04-tests.txt), [docs/runs/2026-11-04-mutations.txt](docs/runs/2026-11-04-mutations.txt).
 
 ## Keys
 
