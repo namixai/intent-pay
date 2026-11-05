@@ -175,7 +175,7 @@ function providerLane(decisions, charge) {
     lane.append(callList(payment), h("p", { class: "detail" }, payment.detail));
     const c = charge.compare;
     if (c.receipt) {
-      lane.append(h("div", { class: `verdict ${c.match ? "allow" : "refuse"}` }, c.match ? "SAME RULE" : "DIFFERENT"),
+      lane.append(h("div", { class: `verdict ${c.match ? "allow" : "refuse"}` }, c.label),
         h("p", { class: "detail" }, `The card said ${c.card || payment.status}; receipt #${c.receipt} said ${c.reason}.`));
     }
     return lane;

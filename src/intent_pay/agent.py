@@ -399,6 +399,10 @@ def vendor_charge(step: Mapping[str, Any], gateway: Gateway) -> list[dict[str, A
     payment = outcome.payment
     compare["card"] = card_reason(payment.status if payment else None)
     compare["match"] = compare.get("expected") is not None and compare["card"] == compare["expected"]
+    # Both of our limit rules map to LIMIT_EXCEEDED, and the card has a third, all-time limit, so that
+    # answer says a limit stopped the charge, not which one. The other reasons name one control each.
+    compare["label"] = ("DIFFERENT" if not compare["match"]
+                        else "LIMIT REJECTED" if compare["card"] == "LIMIT_EXCEEDED" else "SAME RULE")
     events.append({"kind": "vendor_charge", "input": charge, "outcome": outcome.to_dict(), "compare": compare})
     return events
 

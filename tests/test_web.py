@@ -94,7 +94,8 @@ def test_airwallex_demo_names_its_provider_and_shows_the_vendor_step(tmp_path):
     assert view["provider"] == "Airwallex"
     assert view["mode"]["payments"] == "recorded Airwallex sandbox answers"
     charge = [e for e in view["steps"][2]["events"] if e["kind"] == "vendor_charge"][0]
-    assert charge["compare"]["match"] is True
+    # LIMIT_EXCEEDED does not say which limit stopped 470.00: it is over all three on the card.
+    assert charge["compare"]["match"] is True and charge["compare"]["label"] == "LIMIT REJECTED"
     assert [r.get("operation") for r in view["ledger"]["records"] if r["kind"] == "execution"] == ["pay", "forced_charge"]
 
 
