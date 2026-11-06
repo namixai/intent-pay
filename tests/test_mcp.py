@@ -174,23 +174,33 @@ def test_the_server_runs_the_airwallex_step_without_an_agent_itself(tmp_path):
     assert run.ledger.verify() == 5  # decision, card, refusal, the vendor charge, duplicate
 
 
-def test_the_vendor_step_runs_once_even_when_the_next_task_cannot_open(tmp_path):
-    made = []
-    def fails_on_step_4(scenario, step, ledger, sandbox, record=None):
+def test_the_vendor_step_runs_once_even_when_it_fails_or_the_next_task_cannot_open(tmp_path):
+    charges, made = [], []
+
+    def flaky(scenario, step, ledger, sandbox, record=None):
         made.append(step["title"])
+        gateway = mcp_gateway(scenario, step, ledger, sandbox, record=record)
+        if step.get("vendor_charge"):
+            def breaks(*args, **kwargs):
+                charges.append(args)
+                raise RuntimeError("the connection dropped mid-charge")
+            gateway.force_charge = breaks
         if step["title"] == "The same request again" and made.count(step["title"]) == 1:
             raise OSError("no recording")
-        return mcp_gateway(scenario, step, ledger, sandbox, record=record)
-    run = Run(Scenario.load(AIRWALLEX), Ledger(tmp_path / "l.jsonl"), "run1", gateway_for=fails_on_step_4)
+        return gateway
+
+    run = Run(Scenario.load(AIRWALLEX), Ledger(tmp_path / "l.jsonl"), "run1", gateway_for=flaky)
     run.call("read_page", {"url": TASKS_URL})
     run.call("propose_payment", {"amount": "49.00", "currency": "USD", "merchant_category": "7372",
                                  "purpose": "Acme Analytics", "billing": "monthly"})
     run.call("read_page", {"url": TASKS_URL})
-    with pytest.raises(OSError):
+    with pytest.raises(RuntimeError):  # the vendor step breaks
+        run.call("read_page", {"url": TASKS_URL})
+    with pytest.raises(OSError):  # then task 3 cannot open
         run.call("read_page", {"url": TASKS_URL})
     task, _ = run.call("read_page", {"url": TASKS_URL})
     assert task["text"].startswith("Task 3 of 3.")
-    assert made.count("The vendor charges the card anyway") == 1
+    assert len(charges) == 1 and made.count("The vendor charges the card anyway") == 1
 
 
 def test_a_scenario_with_no_step_for_an_agent_is_refused(tmp_path):
