@@ -4,7 +4,7 @@ A screen recording with a voiceover, under 3:00. The track 02 limit is 5 minutes
 
 This is the take on recordings, and it needs no keys. The Airwallex answers are the ones in `tests/fixtures/airwallex/`, recorded from the Airwallex sandbox on 2026-11-02. The page labels them that way, and the voiceover says so. With a working key you can record [the live take](#the-live-take) instead.
 
-Every expected output below comes from a dry run on 2026-11-05: two fresh clones of commit dd15e97, one for the page and one for the terminal commands. The one exception is the label next to receipt #3 in shot 5. It reads LIMIT REJECTED from [#25](https://github.com/namixai/intent-pay/pull/25) on; a clone without that change shows SAME RULE there, so record after it is merged.
+Every expected output below comes from a dry run on 2026-11-05: two fresh clones of commit dd15e97, one for the page and one for the terminal commands. The one exception is the label next to receipt #3 in shot 5, which reads LIMIT REJECTED since [#25](https://github.com/namixai/intent-pay/pull/25). On 2026-11-06, at commit 03bec78, the four steps in the terminal (`python -m intent_pay.agent --scenario scenarios/airwallex-demo.json`) and the three shot 8 commands still gave the same receipts, labels and counts; the page was not run again.
 
 ## What the video has to show
 

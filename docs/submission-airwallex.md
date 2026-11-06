@@ -1,6 +1,6 @@
 # Airwallex Agentic Banking Hackathon: submission text
 
-Track 02, Intent-Bound Purchase Agent. One block per field, ready to paste. The build-phase form may ask for other fields; the idea form had only Title and Description. Sources for every number are in [the table below](#where-the-numbers-come-from).
+Track 02, Intent-Bound Purchase Agent. One block per field, ready to paste. Links inside the blocks are full URLs, since a relative link breaks once pasted into a form. The build-phase form may ask for other fields; the idea form had only Title and Description. Sources for every number are in [the table below](#where-the-numbers-come-from).
 
 ## Title
 
@@ -60,7 +60,7 @@ We did not build on the AWS starter kits: our own Python gateway, with the same 
 
 LIMIT_EXCEEDED does not say which limit applied: 470.00 is over all three on the card. We sent the currency and merchant category controls and saw them come back, but did not run a decline on them.
 
-The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. An outside agent, a Grok bot, has used the agent's two tools through a remote MCP server, but in the PayPal sandbox only ([docs/runs/outside-agent/](runs/outside-agent/)). It did four tasks and made two proposals: one completed, one declined by the sandbox. The injection and the retry never reached the policy, because the bot proposed nothing for them. On 2026-11-06 Claude, as an outside agent through the same MCP server, did the Airwallex tasks in the Airwallex sandbox ([docs/runs/2026-11-06-claude-over-mcp/](runs/2026-11-06-claude-over-mcp/README.md)). It paid task 1, proposed nothing on the injected page, and its retry was refused as a duplicate. The server ran step 3 itself, and the card declined the vendor's 470.00 USD with LIMIT_EXCEEDED. The in-process Claude mode has only run against a stand-in client.
+The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. An outside agent, a Grok bot, has used the agent's two tools through a remote MCP server, but in the PayPal sandbox only (https://github.com/namixai/intent-pay/tree/main/docs/runs/outside-agent). It did four tasks and made two proposals: one completed, one declined by the sandbox. The injection and the retry never reached the policy, because the bot proposed nothing for them. On 2026-11-06 Claude, as an outside agent through the same MCP server, did the Airwallex tasks in the Airwallex sandbox (https://github.com/namixai/intent-pay/tree/main/docs/runs/2026-11-06-claude-over-mcp). It paid task 1, proposed nothing on the injected page, and its retry was refused as a duplicate. The server ran step 3 itself, and the card declined the vendor's 470.00 USD with LIMIT_EXCEEDED. The in-process Claude mode has only run against a stand-in client.
 
 ## Team
 

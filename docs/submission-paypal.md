@@ -120,7 +120,7 @@ Keep the model's judgment and the permission to spend apart and the design gets 
 
 ## What's next
 
-One outside agent has run the four tasks so far, the Grok bot (below, under tools). It stopped at both traps on its own, so that run never reached the policy's refusals. Next: more agents, the Claude mode among them, which has run only against a stand-in client, and moving the gateway into its own process. The repository also holds an Airwallex adapter, which ran its own four-step demo in the Airwallex sandbox on 2026-11-02.
+Two outside agents have run the four tasks so far, a Grok bot and Claude Opus 5.5 (below, under tools). Both stopped at both traps on their own, so neither run reached the policy's refusals. Next: more agents, the in-process Claude mode among them, which has run only against a stand-in client, and moving the gateway into its own process. The repository also holds an Airwallex adapter, which ran its own four-step demo in the Airwallex sandbox on 2026-11-02.
 ```
 
 ### Tools
