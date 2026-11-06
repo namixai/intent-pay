@@ -1,4 +1,4 @@
-Commit 0fd45ca (the tool copies the working tree, which held that commit's code), macOS, Python 3.14.4, 2026-11-06.
+Commit 3da312b (the tool copies the working tree, which held that commit's code), macOS, Python 3.14.4, 2026-11-06.
 $ python tools/mutate.py
 
 red   per_payment inclusive -> exclusive
