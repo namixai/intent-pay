@@ -223,7 +223,7 @@ python -m pytest
 
 On Windows, activate with `.venv\Scripts\activate` instead of the `source` line.
 
-Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each. At commit 0fd45ca, 310 tests passed on a fresh clone and all 130 mutations were caught: [docs/runs/2026-11-06-tests.txt](docs/runs/2026-11-06-tests.txt), [docs/runs/2026-11-06-mutations.txt](docs/runs/2026-11-06-mutations.txt).
+Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each. At commit 3da312b, 313 tests passed on a fresh clone and all 130 mutations were caught: [docs/runs/2026-11-06-tests.txt](docs/runs/2026-11-06-tests.txt), [docs/runs/2026-11-06-mutations.txt](docs/runs/2026-11-06-mutations.txt).
 
 ## Keys
 
