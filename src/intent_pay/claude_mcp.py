@@ -177,11 +177,16 @@ class ClaudeOverMcp:
         self.say(f"key check: {response.model} answered, stop {response.stop_reason}")
         return {"stop_reason": response.stop_reason, "usage": row}
 
-    def task(self, number: int, system: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
+    def task(self, number: int, system: str, tools: list[dict[str, Any]],
+             into: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        """One conversation. Its record goes into `into` before the first call and grows with each
+        turn, so an error part way keeps the turns that were already paid for."""
         messages: list[dict[str, Any]] = [{"role": "user", "content": TASK_MESSAGE}]
         turns: list[dict[str, Any]] = []
         result: dict[str, Any] = {"conversation": number, "message": TASK_MESSAGE, "turns": turns,
                                   "opened": None, "all_done": False, "stopped": None}
+        if into is not None:
+            into.append(result)
         self.say(f"conversation {number}: {TASK_MESSAGE}")
         for _ in range(MAX_TURNS):
             response = self.client.beta.messages.create(
@@ -226,14 +231,18 @@ class ClaudeOverMcp:
 
 
 def run_tasks(mcp: McpClient, client: Any, model: str = MODEL, effort: str = EFFORT, max_tasks: int = MAX_TASKS,
-              say: Callable[[str], None] = print, dry_run: bool = False) -> dict[str, Any]:
+              say: Callable[[str], None] = print, dry_run: bool = False,
+              record: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The run, written into `record` as it goes: if a call fails part way, the caller still
+    holds every finished turn and the usage of every call made."""
+    record = {} if record is None else record
+    record.update(model=model, effort=effort)
     info = mcp.initialize()
     listed = mcp.tools()
     system = info.get("instructions") or ""
     tools = [{"name": t["name"], "description": t.get("description", ""), "input_schema": t["inputSchema"]}
              for t in listed]
-    record: dict[str, Any] = {"model": model, "effort": effort, "server": info.get("serverInfo"),
-                              "protocol_version": info.get("protocolVersion"), "system": system, "tools": tools}
+    record.update(server=info.get("serverInfo"), protocol_version=info.get("protocolVersion"), system=system, tools=tools)
     say(f"server {info.get('serverInfo')}, protocol {info.get('protocolVersion')}")
     say(f"tools: {', '.join(t['name'] for t in tools)}")
     if dry_run:
@@ -247,8 +256,7 @@ def run_tasks(mcp: McpClient, client: Any, model: str = MODEL, effort: str = EFF
     try:
         record["key_check"] = agent.key_check()
         for number in range(1, max_tasks + 1):
-            task = agent.task(number, system, tools)
-            record["tasks"].append(task)
+            task = agent.task(number, system, tools, into=record["tasks"])
             if task["all_done"] or task["opened"] is None or task["stopped"]:
                 break
     finally:
@@ -376,7 +384,7 @@ def main(argv: list[str] | None = None) -> int:
             cassettes = args.out / "cassettes" if args.out is not None and args.sandbox else None
             server = ServerProcess(args.scenario, args.sandbox, args.env, cassettes)
             mcp = McpClient(server.url, server.token)
-        record = run_tasks(mcp, client, args.model, args.effort, args.tasks, dry_run=args.dry_run)
+        run_tasks(mcp, client, args.model, args.effort, args.tasks, dry_run=args.dry_run, record=record)
     except (AgentError, McpError) as exc:
         status = fail(str(exc))
     except Exception as exc:  # an API error: its class and message, which hold no key

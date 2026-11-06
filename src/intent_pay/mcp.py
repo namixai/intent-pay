@@ -288,6 +288,20 @@ def make_handler(server: Server, token: str, origins: frozenset[str] = frozenset
     return Handler
 
 
+MODEL_KEY_PREFIX = "ANTHROPIC_"
+
+
+def drop_model_keys(env: Any = None) -> list[str]:
+    """The server calls no model, so it keeps no model key: every ANTHROPIC_ variable goes, whether
+    it came from the environment or from the --env file (.env.example has ANTHROPIC_API_KEY for the
+    in-process Claude mode). Returns the names dropped."""
+    env = os.environ if env is None else env
+    names = [name for name in env if name.startswith(MODEL_KEY_PREFIX)]
+    for name in names:
+        del env[name]
+    return names
+
+
 def main(argv: list[str] | None = None) -> int:
     from intent_pay.__main__ import load_env_file
 
@@ -302,6 +316,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run", help="tag put into request IDs (default: the current UTC time)")
     args = parser.parse_args(argv)
     load_env_file(pathlib.Path(args.env))
+    dropped = drop_model_keys()
+    if dropped:
+        print(f"dropped {', '.join(sorted(dropped))}: this server calls no model", flush=True)
     try:
         if args.record and not args.sandbox:
             raise AgentError("--record saves live sandbox answers, so it needs --sandbox")

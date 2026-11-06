@@ -41,18 +41,26 @@ def text(words):
     return SimpleNamespace(type="text", text=words)
 
 
+class ApiDown(Exception):
+    """Stands in for an error from the Anthropic SDK, which main tells apart by its module."""
+
+
+ApiDown.__module__ = "anthropic._exceptions"
+
+
 class StandInModel:
     """Stands in for Claude: reads the task page, then makes the scenario script's tool calls for
     the task it opened, then stops. It answers the key check too, and keeps every request."""
 
     ids = itertools.count(1)
 
-    def __init__(self, scenario_path, refuse_on=None):
+    def __init__(self, scenario_path, refuse_on=None, fail_on_call=None):
         steps = json.loads(pathlib.Path(scenario_path).read_text(encoding="utf-8"))["steps"]
         self.scripts = [[i for i in s["script"] if "tool" in i] for s in steps if not s.get("vendor_charge")]
         self.queue = []
         self.requests = []
         self.refuse_on = refuse_on
+        self.fail_on_call = fail_on_call
         self.messages = SimpleNamespace(create=self._key_check)
         self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._create))
 
@@ -67,6 +75,8 @@ class StandInModel:
 
     def _create(self, **request):
         self.requests.append({**request, "messages": list(request["messages"])})  # as sent, before the loop adds to it
+        if len(self.requests) == self.fail_on_call:
+            raise ApiDown("overloaded")
         last = request["messages"][-1]["content"]
         if isinstance(last, str):
             return self._tool("read_page", {"url": TASKS_URL})
@@ -225,3 +235,26 @@ def test_a_whole_run_through_a_started_server_writes_the_record(tmp_path, monkey
     for path in out.iterdir():
         assert FAKE_KEY not in path.read_text(encoding="utf-8")
     assert "USD" in capsys.readouterr().out
+
+
+def test_an_api_error_part_way_keeps_the_turns_and_the_usage_already_paid(serve):
+    mcp, _ = serve(PAYPAL)
+    record = {}
+    # Request 1 is the key check; 2 to 5 are task 1 (read, read, propose, final); 6 is task 2's first.
+    with pytest.raises(ApiDown):
+        run_tasks(mcp, StandInModel(PAYPAL, fail_on_call=7), say=lambda _line: None, record=record)
+    assert record["key_check"]["stop_reason"] == "end_turn"
+    assert len(record["tasks"]) == 2 and len(record["tasks"][0]["turns"]) == 4
+    assert len(record["tasks"][1]["turns"]) == 1 and record["usage"]["calls"] == 6
+
+
+def test_main_writes_what_ran_before_an_api_error(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
+    monkeypatch.setattr(claude_mcp, "_client", lambda key: StandInModel(AIRWALLEX, fail_on_call=5))
+    out = tmp_path / "out"
+    assert claude_mcp.main(["--scenario", str(AIRWALLEX), "--out", str(out)]) == 2
+    assert "the Anthropic API: ApiDown: overloaded" in capsys.readouterr().err
+    record = json.loads((out / "transcript.json").read_text(encoding="utf-8"))
+    assert record["usage"]["calls"] == 4 and record["tasks"][0]["turns"][2]["calls"][0]["answer"]["decision"] == "allow"
+    assert record["ledger"]["records"] == 2

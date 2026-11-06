@@ -4,6 +4,7 @@ the four outcomes of the PayPal demo, and an endpoint that answers only with the
 
 import http.client
 import json
+import os
 import pathlib
 import socket
 import threading
@@ -15,7 +16,8 @@ from intent_pay.adapters.http import ReplayTransport
 from intent_pay.agent import AgentError, Scenario, sandbox_gateway
 from intent_pay.gateway import Gateway
 from intent_pay.ledger import Ledger
-from intent_pay.mcp import PROTOCOL_VERSIONS, TASKS_URL, Run, Server, make_handler, mcp_gateway
+from intent_pay import mcp
+from intent_pay.mcp import PROTOCOL_VERSIONS, TASKS_URL, Run, Server, drop_model_keys, make_handler, mcp_gateway
 from intent_pay.policy import Engine, Policy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -366,3 +368,21 @@ def test_recordings_name_the_program_that_made_them(tmp_path):
     assert "by python -m intent_pay.mcp --record," in source(mcp_gateway)
     assert "by python -m intent_pay.agent --record," in source(sandbox_gateway)
     assert Run(scenario, Ledger(tmp_path / "l.jsonl"), "run1").gateway_for is mcp_gateway
+
+
+def test_the_server_keeps_no_model_key_even_from_its_env_file(tmp_path, monkeypatch, capsys):
+    env = {"ANTHROPIC_API_KEY": "k", "ANTHROPIC_BASE_URL": "u", "PAYPAL_CLIENT_ID": "id"}
+    assert sorted(drop_model_keys(env)) == ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"] and env == {"PAYPAL_CLIENT_ID": "id"}
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("INTENT_PAY_TEST_PROVIDER_ID", raising=False)
+    keys = tmp_path / "keys.env"
+    keys.write_text("ANTHROPIC_API_KEY=from-the-file\nINTENT_PAY_TEST_PROVIDER_ID=kept\n", encoding="utf-8")
+    try:
+        # A scenario that does not exist stops main right after it reads the file.
+        assert mcp.main(["--env", str(keys), "--scenario", str(tmp_path / "none.json")]) == 2
+        assert "ANTHROPIC_API_KEY" not in os.environ
+        assert os.environ["INTENT_PAY_TEST_PROVIDER_ID"] == "kept"
+        assert "dropped ANTHROPIC_API_KEY" in capsys.readouterr().out
+    finally:
+        os.environ.pop("INTENT_PAY_TEST_PROVIDER_ID", None)
