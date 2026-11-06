@@ -142,9 +142,65 @@ def test_a_task_whose_gateway_cannot_be_made_stays_unopened(tmp_path):
     assert not is_error and task["text"].startswith("Task 1 of 4.") and made == ["Monthly renewal"] * 2
 
 
-def test_a_scenario_step_without_an_agent_task_is_refused(tmp_path):
-    with pytest.raises(AgentError, match="not an agent task"):
-        Run(Scenario.load(ROOT / "scenarios" / "airwallex-demo.json"), Ledger(tmp_path / "l.jsonl"), "r")
+AIRWALLEX = ROOT / "scenarios" / "airwallex-demo.json"
+
+
+def test_the_server_runs_the_airwallex_step_without_an_agent_itself(tmp_path):
+    shown = []
+    run = Run(Scenario.load(AIRWALLEX), Ledger(tmp_path / "l.jsonl"), "run1", show=shown.append)
+    server = Server(run, tmp_path / "journal.jsonl")
+    task, _ = call(server, "read_page", {"url": TASKS_URL})
+    assert task["text"].startswith("Task 1 of 3.")
+    paid, _ = propose(server, "49.00")
+    assert paid["decision"] == "allow" and paid["payment"]["ok"]
+
+    task, _ = call(server, "read_page", {"url": TASKS_URL})
+    assert task["text"].startswith("Task 2 of 3.")
+    pushed, _ = propose(server, "470.00", "annual")
+    assert pushed["reason"] == "per_payment_limit_exceeded"
+
+    # Reading the next task runs step 3, the vendor's own charge on the step 1 card, and opens step 4.
+    task, _ = call(server, "read_page", {"url": TASKS_URL})
+    assert task["text"].startswith("Task 3 of 3.") and "Pay it again" in task["text"]
+    assert "No agent" not in task["text"]
+    vendor = "\n".join(shown)
+    assert "Step 3 of the scenario, no agent" in vendor and "LIMIT_EXCEEDED" in vendor
+    assert "receipt #3 per_payment_limit_exceeded" in vendor
+    again, _ = propose(server, "49.00")
+    assert again["reason"] == "duplicate_request_id"
+
+    done, _ = call(server, "read_page", {"url": TASKS_URL})
+    assert done["text"].startswith("All 3 tasks are done")
+    assert run.ledger.verify() == 5  # decision, card, refusal, the vendor charge, duplicate
+
+
+def test_the_vendor_step_runs_once_even_when_the_next_task_cannot_open(tmp_path):
+    made = []
+    def fails_on_step_4(scenario, step, ledger, sandbox, record=None):
+        made.append(step["title"])
+        if step["title"] == "The same request again" and made.count(step["title"]) == 1:
+            raise OSError("no recording")
+        return mcp_gateway(scenario, step, ledger, sandbox, record=record)
+    run = Run(Scenario.load(AIRWALLEX), Ledger(tmp_path / "l.jsonl"), "run1", gateway_for=fails_on_step_4)
+    run.call("read_page", {"url": TASKS_URL})
+    run.call("propose_payment", {"amount": "49.00", "currency": "USD", "merchant_category": "7372",
+                                 "purpose": "Acme Analytics", "billing": "monthly"})
+    run.call("read_page", {"url": TASKS_URL})
+    with pytest.raises(OSError):
+        run.call("read_page", {"url": TASKS_URL})
+    task, _ = run.call("read_page", {"url": TASKS_URL})
+    assert task["text"].startswith("Task 3 of 3.")
+    assert made.count("The vendor charges the card anyway") == 1
+
+
+def test_a_scenario_with_no_step_for_an_agent_is_refused(tmp_path):
+    data = json.loads(AIRWALLEX.read_text(encoding="utf-8"))
+    data["steps"] = [s for s in data["steps"] if s.get("vendor_charge")]
+    data["policy"] = str(AIRWALLEX.parent / data["policy"])
+    path = tmp_path / "vendor-only.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(AgentError, match="no step for an agent"):
+        Run(Scenario.load(path), Ledger(tmp_path / "l.jsonl"), "r")
 
 
 def test_the_journal_holds_every_call_and_never_a_key(server):

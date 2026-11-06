@@ -54,10 +54,20 @@ The agent never sees a key or the card. What comes back from `propose_payment` i
 `python -m intent_pay.mcp` serves the same two tools as a remote MCP server, so an agent in another app can take the script's place. It offers `read_page` and `propose_payment` and nothing else. The agent opens each task by reading `https://tasks.acme.example/next`; the request ID and the order are the task's, set by code, and the gateway decides and pays as above.
 
 ```bash
-INTENT_PAY_MCP_TOKEN=<a long random string> python -m intent_pay.mcp --scenario scenarios/paypal-demo.json --sandbox
+python -m intent_pay.mcp --scenario scenarios/paypal-demo.json --sandbox
 ```
 
-It listens on 127.0.0.1:8765 only, at `/mcp/<token>` (or `/mcp` with `Authorization: Bearer <token>`), and answers anything else with 404. To reach it from outside, put an HTTPS tunnel in front of that port. Every call and its answer go to a journal file next to the ledger in `state/mcp/`, without headers, the token or keys. A refused request is not in the journal. The server prints one line for it on stderr, with the status code and the method but not the path, and closes the connection when the request's body was left unread, so a tunnel cannot pass that body on as the start of someone else's request. With `--record <directory>` the sandbox exchanges are saved there, one file for each task that calls the sandbox, and each file names `python -m intent_pay.mcp --record` as its source.
+At start it prints a new token, unless `INTENT_PAY_MCP_TOKEN` already holds one. It serves the Airwallex scenario too. Step 3 there has no agent: the vendor charges the step 1 card directly, so the server runs that step itself when the agent reads the task page after task 2, and prints the card's answer. The agent gets three tasks and is not told about the vendor's charge. It listens on 127.0.0.1:8765 only, at `/mcp/<token>` (or `/mcp` with `Authorization: Bearer <token>`), and answers anything else with 404. To reach it from outside, put an HTTPS tunnel in front of that port. Every call and its answer go to a journal file next to the ledger in `state/mcp/`, without headers, the token or keys. A refused request is not in the journal. The server prints one line for it on stderr, with the status code and the method but not the path, and closes the connection when the request's body was left unread, so a tunnel cannot pass that body on as the start of someone else's request. With `--record <directory>` the sandbox exchanges are saved there, one file for each task that calls the sandbox, and each file names `python -m intent_pay.mcp --record` as its source.
+
+`python -m intent_pay.claude_mcp` puts Claude in the outside agent's place. It starts the server in a separate process, connects to it over HTTP like any other MCP client, and gives Claude the server's instructions and its two tools and nothing else. The client reads `ANTHROPIC_API_KEY` from its own environment only and does not pass it to the server; the payment provider's keys go only to the server, through `--env`. With `--dry-run` it stops before the first model call, so it needs no key:
+
+```bash
+python -m pip install -e ".[agent]"
+python -m intent_pay.claude_mcp --scenario scenarios/airwallex-demo.json --dry-run
+python -m intent_pay.claude_mcp --scenario scenarios/airwallex-demo.json --sandbox --env <key file> --out <directory>
+```
+
+`--out` writes `transcript.json` (every model turn, tool call and answer, and each call's token usage and cost at the list prices in [claude_mcp.py](src/intent_pay/claude_mcp.py)), with the server's ledger and journal next to it. Model calls are paid, so the tests use a stand-in model.
 
 ## How the policy decides
 
