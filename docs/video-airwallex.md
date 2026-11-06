@@ -1,6 +1,6 @@
 # Airwallex demo video: runsheet
 
-A screen recording with a voiceover, under 3:00. The track 02 limit is 5 minutes. The estimate below comes to 2:57; it counts words, it is not a measurement, so the first read-through gives the real length. If that runs long, cut in the order under [Timing](#timing). No music. On screen there is only the demo page, an editor and a terminal. Everything is in English.
+A screen recording with a voiceover, under 3:00. The track 02 limit is 5 minutes. The estimate below comes to 2:54; it counts words, it is not a measurement, so the first read-through gives the real length. If that runs long, cut in the order under [Timing](#timing). No music. On screen there is only the demo page, an editor and a terminal. Everything is in English.
 
 This is the take on recordings, and it needs no keys. The Airwallex answers are the ones in `tests/fixtures/airwallex/`, recorded from the Airwallex sandbox on 2026-11-02. The page labels them that way, and the voiceover says so. With a working key you can record [the live take](#the-live-take) instead.
 
@@ -13,9 +13,9 @@ The sources are the hackathon's one-pager on its starter kits (kits 1 to 8 on AW
 | What | Shot | How it shows |
 |---|---|---|
 | The policy decides before any payment | 3, 4 | In step 1, ALLOW and receipt #1 come first, then the Airwallex calls. In step 2, REFUSE, and the Airwallex panel says "Not called" |
-| A DECLINED answer | 5, 8 | Step 3: `DECLINED:LIMIT_EXCEEDED` from Airwallex. Shot 8: `"paypal":"DECLINED"` on the outside agent's second payment |
-| A receipt is the ledger's record number | 7, 8 | The `#` column of the ledger on the page, 1 to 5, with decisions and answers in one sequence. Shot 8: receipts 1 and 3, and 4 records in that ledger |
-| A run with an outside agent | 8 | The MCP server's journal of 2026-11-04: 7 `read_page` calls and 2 `propose_payment` calls, with no request ID; `verify` on its ledger says chain ok |
+| A DECLINED answer | 5 | Step 3: `DECLINED:LIMIT_EXCEEDED` from Airwallex |
+| A receipt is the ledger's record number | 7, 8 | The `#` column of the ledger on the page, 1 to 5, with decisions and answers in one sequence. Shot 8: receipts 1 and 4, and 4 records in that ledger |
+| A run with an outside agent on a model | 8 | Claude's run of this scenario through our MCP server, in the Airwallex sandbox on 2026-11-06: 6 `read_page` calls and 2 `propose_payment` calls, with no request ID, the second refused as `duplicate_request_id`; `verify` on its ledger says chain ok |
 | Who proposes | 1 | The agent reads and proposes. It has no key and no card |
 | Who decides | 2 | The policy file, checked by plain Python, not a model |
 | Who approves | 2 | Voiceover: above an amount the owner sets, a person approves (`approve_above`, README, [How the policy decides](../README.md#how-the-policy-decides)). This policy file sets no threshold |
@@ -61,50 +61,52 @@ A failed take is simply recorded again: "Start over" on the page begins a new ru
 | 5 | 1:32 | "Next: step 3", "Run step 3". Point at "Not involved" and "Not asked", then the Airwallex answer and LIMIT REJECTED. | Step three. Say the vendor kept the card and charges 470 anyway. No agent and no policy this time. Airwallex declines it: LIMIT_EXCEEDED. Both rejected 470.00: the card here, the policy in receipt 3. | "Not involved", "Not asked. The vendor goes straight to the card."; `authorize HTTP 201`, `DECLINED:LIMIT_EXCEEDED`; "LIMIT REJECTED", "The card said LIMIT_EXCEEDED; receipt #3 said per_payment_limit_exceeded." |
 | 6 | 1:50 | "Next: step 4", "Run step 4". Point at REFUSE and `duplicate_request_id`. | Step four. The agent retries November with the same request ID. Refused as a duplicate of receipt 1. | "REFUSE duplicate_request_id", "was already decided (receipt #1)", "receipt #5", "Not called" |
 | 7 | 2:01 | Scroll down to "Ledger". Move the cursor down the `#` column, then over "5 records, hash chain verified". | Every decision and every Airwallex answer is a line in this hash-chained ledger. A receipt number is the line's number, so decisions and answers share one sequence. | "5 records, hash chain verified". The rows: 1 decision allow: ok; 2 execution airwallex pay: CLEARED (for #1); 3 decision refuse: per_payment_limit_exceeded; 4 execution airwallex forced_charge: DECLINED:LIMIT_EXCEEDED (for #1); 5 decision refuse: duplicate_request_id |
-| 8 | 2:15 | The second terminal. Paste the three commands from [Shot 8 commands](#shot-8-commands) one at a time, and let each one print. | On November 4th an outside agent, a Grok bot, used the same two tools through our MCP server, in the PayPal sandbox. The server now runs this Airwallex scenario too. Our journal shows seven page reads and two proposals, neither with a request ID. One payment completed, and the sandbox declined the other: receipts 1 and 3. Its ledger verifies. On the injected page it proposed nothing. | `2 propose_payment`, `7 read_page`; two `sent` lines with no `request_id`, answered `"receipt":1,"paypal":"COMPLETED"` and `"receipt":3,"paypal":"DECLINED"`; `"records": 4`, `"chain": "ok"` |
-| 9 | 2:50 | The same terminal: `head -3 LICENSE`. | The code is open, under Apache 2.0. The demo runs without keys. | `Apache License`, `Version 2.0, January 2004` |
+| 8 | 2:15 | The second terminal. Paste the three commands from [Shot 8 commands](#shot-8-commands) one at a time, and let each one print. | On November 6th Claude, as an outside agent, ran this same scenario through our MCP server, in the Airwallex sandbox. Our journal shows six page reads and two proposals, neither with a request ID. The first was paid, and the retry was refused as a duplicate: receipts 1 and 4. Its ledger verifies. On the injected page it proposed nothing. | `2 propose_payment`, `6 read_page`; two `sent` lines with no `request_id`, answered `"decision":"allow"` … `"receipt":1,"airwallex":"CLEARED"` and `"decision":"refuse","reason":"duplicate_request_id","receipt":4`; `"records": 4`, `"chain": "ok"` |
+| 9 | 2:47 | The same terminal: `head -3 LICENSE`. | The code is open, under Apache 2.0. The demo runs without keys. | `Apache License`, `Version 2.0, January 2004` |
 
-The end comes at about 2:57 by the estimate.
+The end comes at about 2:54 by the estimate.
 
 ## Shot 8 commands
 
 Paste them as they are, from `~/intent-pay-video` with `.venv` active. On macOS `jq` is at `/usr/bin/jq` (1.7.1 in the dry run); elsewhere, install it.
 
 ```bash
-jq -r '.request.params.name // empty' docs/runs/outside-agent/2026-11-04-mcp-journal.jsonl | sort | uniq -c
+jq -r '.request.params.name // empty' docs/runs/2026-11-06-claude-over-mcp/airwallex/mcp-journal.jsonl | sort | uniq -c
 ```
 
 Expected:
 
 ```text
    2 propose_payment
-   7 read_page
+   6 read_page
 ```
 
 ```bash
-jq -c 'select(.request.params.name == "propose_payment") | {sent: .request.params.arguments, answer: .answer.result.content[0].text | fromjson | {decision, receipt, paypal: .payment.status}}' docs/runs/outside-agent/2026-11-04-mcp-journal.jsonl
+jq -c 'select(.request.params.name == "propose_payment") | {sent: .request.params.arguments, answer: .answer.result.content[0].text | fromjson | {decision, reason, receipt, airwallex: .payment.status}}' docs/runs/2026-11-06-claude-over-mcp/airwallex/mcp-journal.jsonl
 ```
 
 Expected:
 
 ```text
-{"sent":{"amount":"49.00","currency":"USD","merchant_category":"7372","purpose":"Acme Analytics Team plan, November invoice","billing":"monthly"},"answer":{"decision":"allow","receipt":1,"paypal":"COMPLETED"}}
-{"sent":{"amount":"49.00","currency":"USD","merchant_category":"7372","purpose":"Acme Analytics extra seats invoice","billing":"one_time"},"answer":{"decision":"allow","receipt":3,"paypal":"DECLINED"}}
+{"sent":{"amount":"49.00","currency":"USD","merchant_category":"7372","purpose":"Acme Analytics November invoice, Team plan","billing":"monthly"},"answer":{"decision":"allow","reason":"ok","receipt":1,"airwallex":"CLEARED"}}
+{"sent":{"amount":"49.00","currency":"USD","merchant_category":"7372","purpose":"November invoice, monthly software plan (retry)","billing":"monthly"},"answer":{"decision":"refuse","reason":"duplicate_request_id","receipt":4,"airwallex":null}}
 ```
 
 ```bash
-python -m intent_pay --ledger docs/runs/outside-agent/2026-11-04-ledger.jsonl verify
+python -m intent_pay --ledger docs/runs/2026-11-06-claude-over-mcp/airwallex/ledger.jsonl verify
 ```
 
 Expected:
 
 ```text
 {
-  "ledger": "docs/runs/outside-agent/2026-11-04-ledger.jsonl",
+  "ledger": "docs/runs/2026-11-06-claude-over-mcp/airwallex/ledger.jsonl",
   "records": 4,
   "chain": "ok"
 }
 ```
+
+These outputs are what the three commands printed on 2026-11-06 at commit 03bec78. `"airwallex":null` on the second line means the policy refused before any call to Airwallex.
 
 Shot 9:
 
@@ -118,7 +120,7 @@ head -3 LICENSE
 2. `verify` leaves a lock file next to the ledger it read; in the dry run nothing else in the tree changed. Remove it:
 
    ```bash
-   rm ~/intent-pay-video/docs/runs/outside-agent/2026-11-04-ledger.jsonl.lock
+   rm ~/intent-pay-video/docs/runs/2026-11-06-claude-over-mcp/airwallex/ledger.jsonl.lock
    ```
 
 3. Put the uploaded video's link in place of `VIDEO_URL` in [submission-airwallex.md](submission-airwallex.md).
@@ -136,9 +138,9 @@ An estimate at 150 words a minute, plus seconds for clicks and pasting. Not a me
 | 5 | 34 | 14 s | 4 s | 18 s | 1:32 |
 | 6 | 18 | 7 s | 4 s | 11 s | 1:50 |
 | 7 | 27 | 11 s | 3 s | 14 s | 2:01 |
-| 8 | 67 | 27 s | 8 s | 35 s | 2:15 |
-| 9 | 12 | 5 s | 2 s | 7 s | 2:50 |
-| | | | | **2:57** | |
+| 8 | 60 | 24 s | 8 s | 32 s | 2:15 |
+| 9 | 12 | 5 s | 2 s | 7 s | 2:47 |
+| | | | | **2:54** | |
 
 If the read-through runs over 3:00, cut in this order:
 
@@ -159,20 +161,20 @@ Cut nothing from [What the video has to show](#what-the-video-has-to-show).
 | Number | Source |
 |---|---|
 | 5-minute limit | Airwallex hackathon FAQ, as of 2026-10-19 |
-| 2:57 and the timing table | the estimate above, 150 words a minute |
+| 2:54 and the timing table | the estimate above, 150 words a minute |
 | USD only, categories 5734 and 7372, 60 per payment, 100 a day, 1,000 reserve | `policies/airwallex-sandbox.toml` |
 | 49.00 and 470.00 USD, the note for AI assistants | `scenarios/airwallex-demo.json` |
 | Card controls on the page: USD, 5734 and 7372, 60.00, 100.00, 49.00 all time | our `create_card` request, built by `card_controls` in `src/intent_pay/adapters/airwallex.py` from the policy and the allowed intent |
 | Card, cardholder and lifecycle IDs, the LIMIT_EXCEEDED answer | `tests/fixtures/airwallex/*.json`, recorded from the sandbox on 2026-11-02; the run is `docs/runs/2026-11-02-airwallex-sandbox.txt` |
 | Receipt numbers, "5 records" | the run on screen; they are the same every take |
-| 7 `read_page`, 2 `propose_payment`, receipts 1 and 3, 4 records | `docs/runs/outside-agent/`, the run of 2026-11-04 |
+| 6 `read_page`, 2 `propose_payment`, receipts 1 and 4, 4 records | `docs/runs/2026-11-06-claude-over-mcp/airwallex/`, the run of 2026-11-06 |
 | 1,049.00 USD for the live take | README, [Airwallex sandbox](../README.md#airwallex-sandbox) |
 
 ## Do not say or show
 
 - The words "safe", "guarantee", "audited", "audit", "real money", "mainnet".
-- Any key, token, `.env` contents or card number, or the tunnel address and token of the 2026-11-04 MCP server.
-- Other companies' logos, GitHub's pages, and music. The only other names spoken are PayPal (the sandbox of the 2026-11-04 run) and Grok bot.
+- Any key, token, `.env` contents or card number.
+- Other companies' logos, GitHub's pages, and music. The only other name spoken is Claude, the outside agent of the 2026-11-06 run.
 - Card freeze or refunds in Airwallex. They are not in the code.
 - That this runs on Signer.
 - Anything we plan to build. The video shows only what is on screen.
