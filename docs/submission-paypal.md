@@ -50,7 +50,7 @@ The script is [docs/video-paypal.md](video-paypal.md): about 2:45, under the 3-m
 
 ## For judges: the PayPal sandbox
 
-[judges-sandbox.env](../judges-sandbox.env) is the template for what the rules ask for: the keys of a sandbox app, a test card and the login of its sandbox business account. With its values filled in, `python -m intent_pay.web --sandbox --env judges-sandbox.env` runs the four steps against the PayPal sandbox, and the login shows the same payments at sandbox.paypal.com. While the values are empty, as they are now, the page opens and each step answers `missing environment variable(s)`.
+[judges-sandbox.env](../judges-sandbox.env) is the template for what the rules ask for: the keys of a sandbox app made for judges and a sandbox test card. Its values are filled on submission day and revoked after judging. With them, `python -m intent_pay.web --sandbox --env judges-sandbox.env` runs the four steps against the PayPal sandbox. Until then the values are empty, and the page opens with each step answering `missing environment variable(s)`. [judges.md](judges.md) walks through this and through connecting your own agent over MCP.
 
 ## The form text
 

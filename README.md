@@ -2,6 +2,8 @@
 
 A payment agent that only proposes. A policy in code decides. The sandbox key never reaches the model. PayPal and Airwallex sandboxes.
 
+Hackathon judges: [docs/judges.md](docs/judges.md) gives three ways to check it, from the demo with no keys to your own agent over MCP.
+
 ## The idea
 
 An agent that can pay is as risky as the credential it holds. Give it an API key or a card number, and one wrong step or one prompt injection spends money. Guardrails written into the prompt sit exactly where an attacker can reach them.
@@ -143,7 +145,7 @@ PAYPAL_CARD_NAME=CCREJECT-REFUSED python -m intent_pay pay --policy policies/pay
 
 The cassettes in `tests/fixtures/paypal/` were recorded from the PayPal sandbox on 2026-10-27 with `--record`. Each file's `_source` field says what was sent.
 
-For hackathon judges, [judges-sandbox.env](judges-sandbox.env) is the template for the keys of a PayPal sandbox app and the login of its sandbox business account. Its values are filled on submission day from a judge-only sandbox app and revoked after judging. With them filled in, you can skip the setup above:
+For hackathon judges, [judges-sandbox.env](judges-sandbox.env) is the template for the keys of a PayPal sandbox app made for judges and a sandbox test card. Its values are filled on submission day from a judge-only sandbox app and revoked after judging. With them filled in, you can skip the setup above:
 
 ```bash
 python -m intent_pay.web --sandbox --env judges-sandbox.env
