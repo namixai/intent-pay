@@ -50,7 +50,7 @@ Python 3.11 or newer. No keys are needed: the demo replays the recorded answers 
     python -m pip install -e .
     python -m intent_pay.web --scenario scenarios/airwallex-demo.json
 
-Then open http://127.0.0.1:8765 and run the four steps. The README explains how to run them against your own sandbox with --sandbox. There are 297 tests, and a mutation check breaks the rules 130 ways and finds a failing test for each.
+Then open http://127.0.0.1:8765 and run the four steps. The README explains how to run them against your own sandbox with --sandbox. There are 310 tests, and a mutation check breaks the rules 130 ways and finds a failing test for each.
 
 ## What differs from our idea, and what we did not do
 
@@ -60,7 +60,7 @@ We did not build on the AWS starter kits: our own Python gateway, with the same 
 
 LIMIT_EXCEEDED does not say which limit applied: 470.00 is over all three on the card. We sent the currency and merchant category controls and saw them come back, but did not run a decline on them.
 
-The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. An outside agent, a Grok bot, has used the agent's two tools through a remote MCP server, but in the PayPal sandbox only ([docs/runs/outside-agent/](runs/outside-agent/)). It did four tasks and made two proposals: one completed, one declined by the sandbox. The injection and the retry never reached the policy, because the bot proposed nothing for them. The MCP server does not run the Airwallex scenario yet. The Claude mode is tested against a stand-in client and has not run against the API yet.
+The agent and the gateway run in one Python process in this demo, so the line between them is drawn in code and not by the operating system: the agent gets two tools, and nothing they return holds a key. The video and the recorded run use a scripted agent. An outside agent, a Grok bot, has used the agent's two tools through a remote MCP server, but in the PayPal sandbox only ([docs/runs/outside-agent/](runs/outside-agent/)). It did four tasks and made two proposals: one completed, one declined by the sandbox. The injection and the retry never reached the policy, because the bot proposed nothing for them. On 2026-11-06 Claude, as an outside agent through the same MCP server, did the Airwallex tasks in the Airwallex sandbox ([docs/runs/2026-11-06-claude-over-mcp/](runs/2026-11-06-claude-over-mcp/README.md)). It paid task 1, proposed nothing on the injected page, and its retry was refused as a duplicate. The server ran step 3 itself, and the card declined the vendor's 470.00 USD with LIMIT_EXCEEDED. The in-process Claude mode has only run against a stand-in client.
 
 ## Team
 
@@ -76,6 +76,7 @@ Before pasting, replace `VIDEO_URL` with the uploaded video's link.
 | USD, two categories, 60.00, 100.00, 1,000.00 | [policies/airwallex-sandbox.toml](../policies/airwallex-sandbox.toml) |
 | 49.00 and 470.00 USD | [scenarios/airwallex-demo.json](../scenarios/airwallex-demo.json) |
 | The four steps, LIMIT_EXCEEDED, 2026-11-02 | [docs/runs/2026-11-02-airwallex-sandbox.txt](runs/2026-11-02-airwallex-sandbox.txt) |
+| Claude's Airwallex run, 2026-11-06 | [docs/runs/2026-11-06-claude-over-mcp/](runs/2026-11-06-claude-over-mcp/README.md) |
 | The controls in the card answer | [tests/fixtures/airwallex/pay-cleared.json](../tests/fixtures/airwallex/pay-cleared.json) |
-| 297 tests | [docs/runs/2026-11-04-tests.txt](runs/2026-11-04-tests.txt) |
-| 130 mutations, none uncaught | [docs/runs/2026-11-04-mutations.txt](runs/2026-11-04-mutations.txt) |
+| 310 tests | [docs/runs/2026-11-06-tests.txt](runs/2026-11-06-tests.txt) |
+| 130 mutations, none uncaught | [docs/runs/2026-11-06-mutations.txt](runs/2026-11-06-mutations.txt) |

@@ -1,0 +1,70 @@
+{
+  "_source": "recorded from the Airwallex sandbox on 2026-11-06 by python -m intent_pay.mcp --record, airwallex-demo.json, step 'The vendor charges the card anyway'",
+  "recorded": true,
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/authentication/login",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "expires_at": "2026-11-06T08:27:50+0000",
+          "token": "REDACTED"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/simulation/issuing/create",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "card_id": "6a874edc-62a5-405b-a855-e18f3a6e0aea",
+          "transaction_amount": 470,
+          "transaction_currency": "USD",
+          "merchant_info": "INTENT PAY SANDBOX VENDOR                  ",
+          "merchant_category_code": "7372"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "card_transaction_event_id": "01a1afdd-3494-7000-aecb-4d5385731fdc",
+          "card_transaction_id": "01a1afdd-3494-7000-9f31-e4ae94884419",
+          "card_transaction_lifecycle_id": "01a1afdd-3494-7000-916c-9cbb68854f81",
+          "type": "AUTHORIZATION",
+          "subtype": "AUTHORIZATION",
+          "process_result": "DECLINED",
+          "transacted_at": "2026-11-06T07:57:52.148+0000",
+          "updated_at": "2026-11-06T07:57:52.747+0000",
+          "card_id": "6a874edc-62a5-405b-a855-e18f3a6e0aea",
+          "transaction_amount": 470,
+          "transaction_currency": "USD",
+          "billing_amount": 470,
+          "billing_currency": "USD",
+          "merchant": {
+            "name": "INTENT PAY SANDBOX VENDOR",
+            "city": "",
+            "country": "",
+            "category_code": "7372"
+          },
+          "auth_code": "YCETBO",
+          "retrieval_ref": "312948596696",
+          "masked_card_number": "************3235",
+          "failure_reason": "LIMIT_EXCEEDED",
+          "client_data": "receipt:1:bda56e88d9096982",
+          "card_nickname": "intent-pay acme-nov-1106074842",
+          "network_transaction_id": "846630522198634"
+        }
+      }
+    }
+  ]
+}

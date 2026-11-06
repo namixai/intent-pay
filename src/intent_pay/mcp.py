@@ -10,8 +10,14 @@ returns its text. From then on the agent reads that task's page and its proposal
 gateway with that step's request ID and order, set by code; a second proposal in the same task
 carries the same request ID. A proposal before the first task reaches no gateway.
 
+A scenario step with no agent, such as step 3 of the Airwallex demo where the vendor charges the
+card directly, is run by the server itself, once, when the agent reads the task page after the
+task before it. The server prints its result; the agent is not told about it, and its tasks are
+numbered without it.
+
     python -m intent_pay.mcp --scenario scenarios/paypal-demo.json            # recorded answers
     python -m intent_pay.mcp --scenario scenarios/paypal-demo.json --sandbox  # PayPal sandbox
+    python -m intent_pay.mcp --scenario scenarios/airwallex-demo.json --sandbox
 
 The server speaks MCP's Streamable HTTP transport, answering each POST with JSON (it opens no
 event stream), on 127.0.0.1 only. The endpoint is /mcp/<token>, or /mcp with the header
@@ -38,7 +44,7 @@ from typing import Any, Callable, Mapping
 
 from intent_pay import __version__
 from intent_pay.agent import (CONFIG_ERRORS, AgentError, Scenario, StepTools, _line, fresh_run, sandbox_gateway,
-                              system_for, tools_for)
+                              system_for, tools_for, vendor_charge)
 from intent_pay.ledger import Ledger, LedgerError
 
 TASKS_URL = "https://tasks.acme.example/next"
@@ -63,14 +69,15 @@ def mcp_gateway(*args: Any, **kwargs: Any) -> Any:
 
 
 class Run:
-    """One pass through a scenario by an outside agent: which task is open, and its tools."""
+    """One pass through a scenario by an outside agent: which step was last opened or run, and the
+    open task's tools."""
 
     def __init__(self, scenario: Scenario, ledger: Ledger, run: str, sandbox: bool = False,
                  record: pathlib.Path | None = None, gateway_for: Callable[..., Any] = mcp_gateway,
                  show: Callable[[str], None] = lambda _line: None):
-        for i, step in enumerate(scenario.steps):
-            if step.get("vendor_charge"):
-                raise AgentError(f"{scenario.path.name} step {i + 1} is not an agent task; this server runs agent tasks only")
+        self.agent_steps = [i for i, step in enumerate(scenario.steps) if not step.get("vendor_charge")]
+        if not self.agent_steps:
+            raise AgentError(f"{scenario.path.name} has no step for an agent")
         self.scenario, self.ledger, self.run = scenario, ledger, run
         self.sandbox, self.record, self.gateway_for, self.show = sandbox, record, gateway_for, show
         self.index = -1
@@ -87,17 +94,32 @@ class Run:
         return seen, is_error
 
     def _next_task(self) -> tuple[dict[str, Any], bool]:
-        total = len(self.scenario.steps)
-        if self.index + 1 >= total:
+        total = len(self.agent_steps)
+        while self.index + 1 < len(self.scenario.steps) and self.index + 1 not in self.agent_steps:
+            self._run_vendor_step(self.index + 1)
+        if self.index + 1 >= len(self.scenario.steps):
             return {"url": TASKS_URL, "text": f"All {total} tasks are done. There is nothing more to do."}, False
         nxt = self.index + 1
         step = self.scenario.step(nxt, self.run)
-        record = None if self.record is None else self.record / f"step-{nxt + 1}.json"
         # The gateway first: if it cannot be made, the task stays unopened and the next read tries it again.
-        gateway = self.gateway_for(self.scenario, step, self.ledger, self.sandbox, record=record)
+        gateway = self.gateway_for(self.scenario, step, self.ledger, self.sandbox, record=self._record(nxt))
         self.index, self.tools = nxt, StepTools(step, gateway, self.scenario.provider)
-        self.show(f"Task {self.index + 1}: {step['title']}")
-        return {"url": TASKS_URL, "text": f"Task {self.index + 1} of {total}. {step['task']}"}, False
+        number = self.agent_steps.index(nxt) + 1
+        self.show(f"Task {number}: {step['title']}")
+        return {"url": TASKS_URL, "text": f"Task {number} of {total}. {step['task']}"}, False
+
+    def _run_vendor_step(self, index: int) -> None:
+        """A step with no agent: the vendor charges an earlier payment's card directly."""
+        step = self.scenario.step(index, self.run)
+        gateway = self.gateway_for(self.scenario, step, self.ledger, self.sandbox, record=self._record(index))
+        # Counted as run before it runs, so a failure in it cannot make a later read charge the card again.
+        self.index = index
+        self.show(f"Step {index + 1} of the scenario, no agent: {step['title']}")
+        for event in vendor_charge(step, gateway):
+            self.show(_line(event, self.scenario.provider))
+
+    def _record(self, index: int) -> pathlib.Path | None:
+        return None if self.record is None else self.record / f"step-{index + 1}.json"
 
 
 def _result(mid: Any, result: dict[str, Any]) -> dict[str, Any]:
@@ -266,6 +288,20 @@ def make_handler(server: Server, token: str, origins: frozenset[str] = frozenset
     return Handler
 
 
+MODEL_KEY_PREFIX = "ANTHROPIC_"
+
+
+def drop_model_keys(env: Any = None) -> list[str]:
+    """The server calls no model, so it keeps no model key: every ANTHROPIC_ variable goes, whether
+    it came from the environment or from the --env file (.env.example has ANTHROPIC_API_KEY for the
+    in-process Claude mode). Returns the names dropped."""
+    env = os.environ if env is None else env
+    names = [name for name in env if name.startswith(MODEL_KEY_PREFIX)]
+    for name in names:
+        del env[name]
+    return names
+
+
 def main(argv: list[str] | None = None) -> int:
     from intent_pay.__main__ import load_env_file
 
@@ -280,6 +316,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run", help="tag put into request IDs (default: the current UTC time)")
     args = parser.parse_args(argv)
     load_env_file(pathlib.Path(args.env))
+    dropped = drop_model_keys()
+    if dropped:
+        print(f"dropped {', '.join(sorted(dropped))}: this server calls no model", flush=True)
     try:
         if args.record and not args.sandbox:
             raise AgentError("--record saves live sandbox answers, so it needs --sandbox")

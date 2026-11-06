@@ -14,7 +14,7 @@ The policy design is taken from Usenami Signer, our Rust signing service for tra
 
 ## Status
 
-Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. On 2026-11-04 an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: [docs/runs/outside-agent/](docs/runs/outside-agent/). The Claude agent mode is tested against a stand-in client, not yet against the API. [docs/runs/](docs/runs/) lists what each run left behind and how to check it.
+Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. On 2026-11-04 an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: [docs/runs/outside-agent/](docs/runs/outside-agent/). On 2026-11-06 Claude took the outside agent's place through the same server and did the Airwallex and PayPal tasks in both sandboxes: [docs/runs/2026-11-06-claude-over-mcp/](docs/runs/2026-11-06-claude-over-mcp/README.md). The in-process Claude mode (`INTENT_PAY_AGENT=claude`) is tested against a stand-in client, not yet against the API. [docs/runs/](docs/runs/) lists what each run left behind and how to check it.
 
 ## Run the demo
 
@@ -54,10 +54,20 @@ The agent never sees a key or the card. What comes back from `propose_payment` i
 `python -m intent_pay.mcp` serves the same two tools as a remote MCP server, so an agent in another app can take the script's place. It offers `read_page` and `propose_payment` and nothing else. The agent opens each task by reading `https://tasks.acme.example/next`; the request ID and the order are the task's, set by code, and the gateway decides and pays as above.
 
 ```bash
-INTENT_PAY_MCP_TOKEN=<a long random string> python -m intent_pay.mcp --scenario scenarios/paypal-demo.json --sandbox
+python -m intent_pay.mcp --scenario scenarios/paypal-demo.json --sandbox
 ```
 
-It listens on 127.0.0.1:8765 only, at `/mcp/<token>` (or `/mcp` with `Authorization: Bearer <token>`), and answers anything else with 404. To reach it from outside, put an HTTPS tunnel in front of that port. Every call and its answer go to a journal file next to the ledger in `state/mcp/`, without headers, the token or keys. A refused request is not in the journal. The server prints one line for it on stderr, with the status code and the method but not the path, and closes the connection when the request's body was left unread, so a tunnel cannot pass that body on as the start of someone else's request. With `--record <directory>` the sandbox exchanges are saved there, one file for each task that calls the sandbox, and each file names `python -m intent_pay.mcp --record` as its source.
+At start it prints a new token, unless `INTENT_PAY_MCP_TOKEN` already holds one. It serves the Airwallex scenario too. Step 3 there has no agent: the vendor charges the step 1 card directly, so the server runs that step itself when the agent reads the task page after task 2, and prints the card's answer. The agent gets three tasks and is not told about the vendor's charge. It listens on 127.0.0.1:8765 only, at `/mcp/<token>` (or `/mcp` with `Authorization: Bearer <token>`), and answers anything else with 404. To reach it from outside, put an HTTPS tunnel in front of that port. Every call and its answer go to a journal file next to the ledger in `state/mcp/`, without headers, the token or the server's keys. The tools' arguments are kept as the agent sent them, so anything an agent puts into one, a URL included, is in the journal: read it before you share it. A refused request is not in the journal. The server prints one line for it on stderr, with the status code and the method but not the path, and closes the connection when the request's body was left unread, so a tunnel cannot pass that body on as the start of someone else's request. With `--record <directory>` the sandbox exchanges are saved there, one file for each task that calls the sandbox, and each file names `python -m intent_pay.mcp --record` as its source.
+
+`python -m intent_pay.claude_mcp` puts Claude in the outside agent's place. It starts the server in a separate process, connects to it over HTTP like any other MCP client, and gives Claude the server's instructions and its two tools and nothing else. The client reads `ANTHROPIC_API_KEY` from its own environment only and does not pass it to the server; the payment provider's keys go only to the server, through `--env`. The server drops every `ANTHROPIC_` variable after reading its `--env` file, so a `.env` made from `.env.example`, which has a line for that key, does not give the server a model key either. With `--dry-run` it stops before the first model call, so it needs no key:
+
+```bash
+python -m pip install -e ".[agent]"
+python -m intent_pay.claude_mcp --scenario scenarios/airwallex-demo.json --dry-run
+python -m intent_pay.claude_mcp --scenario scenarios/airwallex-demo.json --sandbox --env <key file> --out <directory>
+```
+
+`--out` writes `transcript.json` (every model turn, tool call and answer, and each call's token usage and cost at the list prices in [claude_mcp.py](src/intent_pay/claude_mcp.py)), with the server's ledger and journal next to it. Model calls are paid, so the tests use a stand-in model.
 
 ## How the policy decides
 
@@ -213,7 +223,7 @@ python -m pytest
 
 On Windows, activate with `.venv\Scripts\activate` instead of the `source` line.
 
-Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each. On a fresh clone of commit f98216b, 297 tests passed and all 130 mutations were caught: [docs/runs/2026-11-04-tests.txt](docs/runs/2026-11-04-tests.txt), [docs/runs/2026-11-04-mutations.txt](docs/runs/2026-11-04-mutations.txt).
+Every refusal has its own test. `python tools/mutate.py` breaks the rules one at a time on a copy of the code and checks that some test fails for each. At commit 0fd45ca, 310 tests passed on a fresh clone and all 130 mutations were caught: [docs/runs/2026-11-06-tests.txt](docs/runs/2026-11-06-tests.txt), [docs/runs/2026-11-06-mutations.txt](docs/runs/2026-11-06-mutations.txt).
 
 ## Keys
 

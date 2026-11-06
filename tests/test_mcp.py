@@ -4,6 +4,7 @@ the four outcomes of the PayPal demo, and an endpoint that answers only with the
 
 import http.client
 import json
+import os
 import pathlib
 import socket
 import threading
@@ -15,7 +16,8 @@ from intent_pay.adapters.http import ReplayTransport
 from intent_pay.agent import AgentError, Scenario, sandbox_gateway
 from intent_pay.gateway import Gateway
 from intent_pay.ledger import Ledger
-from intent_pay.mcp import PROTOCOL_VERSIONS, TASKS_URL, Run, Server, make_handler, mcp_gateway
+from intent_pay import mcp
+from intent_pay.mcp import PROTOCOL_VERSIONS, TASKS_URL, Run, Server, drop_model_keys, make_handler, mcp_gateway
 from intent_pay.policy import Engine, Policy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -142,9 +144,75 @@ def test_a_task_whose_gateway_cannot_be_made_stays_unopened(tmp_path):
     assert not is_error and task["text"].startswith("Task 1 of 4.") and made == ["Monthly renewal"] * 2
 
 
-def test_a_scenario_step_without_an_agent_task_is_refused(tmp_path):
-    with pytest.raises(AgentError, match="not an agent task"):
-        Run(Scenario.load(ROOT / "scenarios" / "airwallex-demo.json"), Ledger(tmp_path / "l.jsonl"), "r")
+AIRWALLEX = ROOT / "scenarios" / "airwallex-demo.json"
+
+
+def test_the_server_runs_the_airwallex_step_without_an_agent_itself(tmp_path):
+    shown = []
+    run = Run(Scenario.load(AIRWALLEX), Ledger(tmp_path / "l.jsonl"), "run1", show=shown.append)
+    server = Server(run, tmp_path / "journal.jsonl")
+    task, _ = call(server, "read_page", {"url": TASKS_URL})
+    assert task["text"].startswith("Task 1 of 3.")
+    paid, _ = propose(server, "49.00")
+    assert paid["decision"] == "allow" and paid["payment"]["ok"]
+
+    task, _ = call(server, "read_page", {"url": TASKS_URL})
+    assert task["text"].startswith("Task 2 of 3.")
+    pushed, _ = propose(server, "470.00", "annual")
+    assert pushed["reason"] == "per_payment_limit_exceeded"
+
+    # Reading the next task runs step 3, the vendor's own charge on the step 1 card, and opens step 4.
+    task, _ = call(server, "read_page", {"url": TASKS_URL})
+    assert task["text"].startswith("Task 3 of 3.") and "Pay it again" in task["text"]
+    assert "No agent" not in task["text"]
+    vendor = "\n".join(shown)
+    assert "Step 3 of the scenario, no agent" in vendor and "LIMIT_EXCEEDED" in vendor
+    assert "receipt #3 per_payment_limit_exceeded" in vendor
+    again, _ = propose(server, "49.00")
+    assert again["reason"] == "duplicate_request_id"
+
+    done, _ = call(server, "read_page", {"url": TASKS_URL})
+    assert done["text"].startswith("All 3 tasks are done")
+    assert run.ledger.verify() == 5  # decision, card, refusal, the vendor charge, duplicate
+
+
+def test_the_vendor_step_runs_once_even_when_it_fails_or_the_next_task_cannot_open(tmp_path):
+    charges, made = [], []
+
+    def flaky(scenario, step, ledger, sandbox, record=None):
+        made.append(step["title"])
+        gateway = mcp_gateway(scenario, step, ledger, sandbox, record=record)
+        if step.get("vendor_charge"):
+            def breaks(*args, **kwargs):
+                charges.append(args)
+                raise RuntimeError("the connection dropped mid-charge")
+            gateway.force_charge = breaks
+        if step["title"] == "The same request again" and made.count(step["title"]) == 1:
+            raise OSError("no recording")
+        return gateway
+
+    run = Run(Scenario.load(AIRWALLEX), Ledger(tmp_path / "l.jsonl"), "run1", gateway_for=flaky)
+    run.call("read_page", {"url": TASKS_URL})
+    run.call("propose_payment", {"amount": "49.00", "currency": "USD", "merchant_category": "7372",
+                                 "purpose": "Acme Analytics", "billing": "monthly"})
+    run.call("read_page", {"url": TASKS_URL})
+    with pytest.raises(RuntimeError):  # the vendor step breaks
+        run.call("read_page", {"url": TASKS_URL})
+    with pytest.raises(OSError):  # then task 3 cannot open
+        run.call("read_page", {"url": TASKS_URL})
+    task, _ = run.call("read_page", {"url": TASKS_URL})
+    assert task["text"].startswith("Task 3 of 3.")
+    assert len(charges) == 1 and made.count("The vendor charges the card anyway") == 1
+
+
+def test_a_scenario_with_no_step_for_an_agent_is_refused(tmp_path):
+    data = json.loads(AIRWALLEX.read_text(encoding="utf-8"))
+    data["steps"] = [s for s in data["steps"] if s.get("vendor_charge")]
+    data["policy"] = str(AIRWALLEX.parent / data["policy"])
+    path = tmp_path / "vendor-only.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(AgentError, match="no step for an agent"):
+        Run(Scenario.load(path), Ledger(tmp_path / "l.jsonl"), "r")
 
 
 def test_the_journal_holds_every_call_and_never_a_key(server):
@@ -300,3 +368,21 @@ def test_recordings_name_the_program_that_made_them(tmp_path):
     assert "by python -m intent_pay.mcp --record," in source(mcp_gateway)
     assert "by python -m intent_pay.agent --record," in source(sandbox_gateway)
     assert Run(scenario, Ledger(tmp_path / "l.jsonl"), "run1").gateway_for is mcp_gateway
+
+
+def test_the_server_keeps_no_model_key_even_from_its_env_file(tmp_path, monkeypatch, capsys):
+    env = {"ANTHROPIC_API_KEY": "k", "ANTHROPIC_BASE_URL": "u", "PAYPAL_CLIENT_ID": "id"}
+    assert sorted(drop_model_keys(env)) == ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"] and env == {"PAYPAL_CLIENT_ID": "id"}
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("INTENT_PAY_TEST_PROVIDER_ID", raising=False)
+    keys = tmp_path / "keys.env"
+    keys.write_text("ANTHROPIC_API_KEY=from-the-file\nINTENT_PAY_TEST_PROVIDER_ID=kept\n", encoding="utf-8")
+    try:
+        # A scenario that does not exist stops main right after it reads the file.
+        assert mcp.main(["--env", str(keys), "--scenario", str(tmp_path / "none.json")]) == 2
+        assert "ANTHROPIC_API_KEY" not in os.environ
+        assert os.environ["INTENT_PAY_TEST_PROVIDER_ID"] == "kept"
+        assert "dropped ANTHROPIC_API_KEY" in capsys.readouterr().out
+    finally:
+        os.environ.pop("INTENT_PAY_TEST_PROVIDER_ID", None)
