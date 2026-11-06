@@ -14,7 +14,7 @@ The policy design is taken from Usenami Signer, our Rust signing service for tra
 
 ## Status
 
-Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. On 2026-11-04 an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: [docs/runs/outside-agent/](docs/runs/outside-agent/). The Claude agent mode is tested against a stand-in client, not yet against the API. [docs/runs/](docs/runs/) lists what each run left behind and how to check it.
+Built so far: the intent, the policy engine, the receipt ledger, the PayPal and Airwallex sandbox adapters, the agent and a demo page, with tests. The PayPal adapter has paid, refunded and been refused in the PayPal sandbox, and the tests replay those recordings. The Airwallex adapter ran the four demo steps in the Airwallex sandbox on 2026-11-02, and the tests replay those recordings too. On 2026-11-04 an outside agent, a Grok bot, did the four PayPal tasks through the MCP server: [docs/runs/outside-agent/](docs/runs/outside-agent/). On 2026-11-06 Claude took the outside agent's place through the same server and did the Airwallex and PayPal tasks in both sandboxes: [docs/runs/2026-11-06-claude-over-mcp/](docs/runs/2026-11-06-claude-over-mcp/README.md). The in-process Claude mode (`INTENT_PAY_AGENT=claude`) is tested against a stand-in client, not yet against the API. [docs/runs/](docs/runs/) lists what each run left behind and how to check it.
 
 ## Run the demo
 
